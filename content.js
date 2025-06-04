@@ -6,6 +6,7 @@ class TwitterFeedFilter {
         this.hiddenCount = 0;
         this.isRunning = false;
         this.observer = null;
+        this.filterTimeout = null;
         this.init();
     }
 
@@ -32,10 +33,42 @@ class TwitterFeedFilter {
             if (request.action === 'updateFilters') {
                 this.filters = request.filters;
                 console.log(`Updated to ${this.filters.length} active filters`);
+                this.cleanupDuplicateIndicators();
                 this.filterExistingPosts();
                 sendResponse({ success: true });
             }
         });
+    }
+
+    cleanupDuplicateIndicators() {
+        // Remove any duplicate filter indicators
+        const indicators = document.querySelectorAll('.twitter-filter-indicator');
+        const seenTweets = new Set();
+
+        indicators.forEach(indicator => {
+            const nextTweet = indicator.nextElementSibling;
+            if (nextTweet && nextTweet.getAttribute('data-testid') === 'tweet') {
+                const tweetId = this.getTweetId(nextTweet);
+                if (seenTweets.has(tweetId)) {
+                    // This is a duplicate, remove it
+                    indicator.remove();
+                } else {
+                    seenTweets.add(tweetId);
+                }
+            }
+        });
+    }
+
+    getTweetId(tweetElement) {
+        // Try to get a unique identifier for the tweet
+        const link = tweetElement.querySelector('a[href*="/status/"]');
+        if (link) {
+            return link.getAttribute('href');
+        }
+
+        // Fallback to text content hash
+        const text = this.getTweetText(tweetElement);
+        return text.substring(0, 100); // Use first 100 chars as identifier
     }
 
     startFiltering() {
@@ -49,10 +82,10 @@ class TwitterFeedFilter {
         // Set up observer for new posts
         this.setupObserver();
 
-        // Periodic cleanup and refilter
+        // Periodic cleanup and refilter (reduced frequency)
         setInterval(() => {
             this.filterExistingPosts();
-        }, 5000);
+        }, 10000); // Changed from 5000 to 10000 (10 seconds)
     }
 
     setupObserver() {
@@ -63,6 +96,11 @@ class TwitterFeedFilter {
             mutations.forEach((mutation) => {
                 mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
+                        // Skip if this is our own filter indicator
+                        if (node.classList && node.classList.contains('twitter-filter-indicator')) {
+                            return;
+                        }
+
                         // Check if this is a tweet or contains tweets
                         if (this.isTweetElement(node) || node.querySelector('[data-testid="tweet"]')) {
                             hasNewPosts = true;
@@ -72,7 +110,9 @@ class TwitterFeedFilter {
             });
 
             if (hasNewPosts) {
-                setTimeout(() => this.filterExistingPosts(), 100);
+                // Debounce the filtering to avoid excessive calls
+                clearTimeout(this.filterTimeout);
+                this.filterTimeout = setTimeout(() => this.filterExistingPosts(), 200);
             }
         });
 
@@ -98,15 +138,44 @@ class TwitterFeedFilter {
         const tweets = document.querySelectorAll('[data-testid="tweet"]');
 
         tweets.forEach((tweet) => {
+            // Skip if this tweet has already been processed
+            if (this.isTweetAlreadyProcessed(tweet)) {
+                return;
+            }
+
             if (this.shouldHideTweet(tweet)) {
                 this.hideTweet(tweet);
+            } else {
+                // Mark as processed even if not hidden to avoid reprocessing
+                tweet.setAttribute('data-filter-processed', 'true');
             }
         });
     }
 
+    isTweetAlreadyProcessed(tweetElement) {
+        // Check if tweet has already been processed
+        if (tweetElement.getAttribute('data-filter-processed') === 'true') {
+            return true;
+        }
+
+        // Check if there's already a filter indicator for this tweet
+        const previousSibling = tweetElement.previousElementSibling;
+        if (previousSibling && previousSibling.classList.contains('twitter-filter-indicator')) {
+            return true;
+        }
+
+        // Check if the tweet itself has been marked as filtered
+        if (tweetElement.classList.contains('filtered-tweet')) {
+            return true;
+        }
+
+        return false;
+    }
+
     shouldHideTweet(tweetElement) {
-        if (tweetElement.style.display === 'none' || tweetElement.classList.contains('filtered-tweet')) {
-            return false; // Already hidden
+        // Don't process if already handled
+        if (this.isTweetAlreadyProcessed(tweetElement)) {
+            return false;
         }
 
         for (const filter of this.filters) {
@@ -248,10 +317,7 @@ class TwitterFeedFilter {
         if (tweetElement.classList.contains('filtered-tweet')) return;
 
         tweetElement.classList.add('filtered-tweet');
-
-        // Create red indicator overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'twitter-filter-indicator';
+        tweetElement.setAttribute('data-filter-processed', 'true');
 
         // Determine which filter matched
         let matchedFilter = null;
@@ -265,6 +331,10 @@ class TwitterFeedFilter {
         }
 
         const filterName = matchedFilter ? matchedFilter.name : 'Filter';
+
+        // Create red indicator overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'twitter-filter-indicator';
 
         overlay.innerHTML = `
             <div class="twitter-filter-content">
