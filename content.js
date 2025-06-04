@@ -249,82 +249,276 @@ class TwitterFeedFilter {
 
         tweetElement.classList.add('filtered-tweet');
 
-        // Create overlay
+        // Create red indicator overlay
         const overlay = document.createElement('div');
-        overlay.className = 'twitter-filter-overlay';
+        overlay.className = 'twitter-filter-indicator';
+
+        // Determine which filter matched
+        let matchedFilter = null;
+        let filterReason = '';
+        for (const filter of this.filters) {
+            if (this.matchesFilter(tweetElement, filter)) {
+                matchedFilter = filter;
+                filterReason = this.getFilterReason(tweetElement, filter);
+                break;
+            }
+        }
+
+        const filterName = matchedFilter ? matchedFilter.name : 'Filter';
+
         overlay.innerHTML = `
-            <div class="twitter-filter-message">
-                <span class="filter-icon">🚫</span>
-                <span class="filter-text">Post hidden by Twitter Feed Filter</span>
-                <button class="show-post-btn" onclick="this.parentElement.parentElement.style.display='none'; this.parentElement.parentElement.nextElementSibling.style.display='block';">Show Post</button>
+            <div class="twitter-filter-content">
+                <div class="filter-bar"></div>
+                <div class="filter-info">
+                    <span class="filter-icon">🚫</span>
+                    <span class="filter-text">Post filtered by: <strong>${this.escapeHtml(filterName)}</strong></span>
+                    ${filterReason ? `<span class="filter-reason">${this.escapeHtml(filterReason)}</span>` : ''}
+                    <div class="filter-actions">
+                        <button class="show-temp-btn" data-action="show-temp">Show Temporarily</button>
+                        <button class="hide-permanent-btn" data-action="hide-permanent">Hide Completely</button>
+                    </div>
+                </div>
             </div>
         `;
+
+        // Add event listeners for buttons
+        const showTempBtn = overlay.querySelector('.show-temp-btn');
+        const hidePermanentBtn = overlay.querySelector('.hide-permanent-btn');
+
+        showTempBtn.addEventListener('click', () => {
+            if (overlay.classList.contains('temporarily-shown')) {
+                // Hide again
+                tweetElement.style.display = 'none';
+                overlay.classList.remove('temporarily-shown');
+                showTempBtn.textContent = 'Show Temporarily';
+            } else {
+                // Show temporarily
+                tweetElement.style.display = 'block';
+                overlay.classList.add('temporarily-shown');
+                showTempBtn.textContent = '✓ Hide Again';
+            }
+        });
+
+        hidePermanentBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            tweetElement.style.display = 'none';
+        });
 
         // Add styles if not already added
         if (!document.getElementById('twitter-filter-styles')) {
             this.addFilterStyles();
         }
 
-        // Hide original tweet and insert overlay
+        // Hide original tweet and insert indicator
         tweetElement.style.display = 'none';
         tweetElement.parentNode.insertBefore(overlay, tweetElement);
 
+        // Add animation for newly filtered posts
+        overlay.classList.add('new-filter');
+        setTimeout(() => overlay.classList.remove('new-filter'), 2000);
+
         this.hiddenCount++;
-        console.log(`Hidden tweet #${this.hiddenCount}`);
+        console.log(`Hidden tweet #${this.hiddenCount} (${filterName})`);
     }
 
     addFilterStyles() {
         const styles = document.createElement('style');
         styles.id = 'twitter-filter-styles';
         styles.textContent = `
-            .twitter-filter-overlay {
-                background: #f7f9fa;
-                border: 1px solid #e1e8ed;
-                border-radius: 16px;
-                margin: 8px 0;
-                padding: 16px;
-                text-align: center;
-                color: #657786;
+            .twitter-filter-indicator {
+                background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+                border: 2px solid #e53e3e;
+                border-radius: 12px;
+                margin: 12px 0;
+                padding: 0;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                position: relative;
+                overflow: hidden;
+                transition: all 0.3s ease;
             }
             
-            .twitter-filter-message {
+            .twitter-filter-indicator:hover {
+                border-color: #c53030;
+                box-shadow: 0 4px 12px rgba(229, 62, 62, 0.15);
+            }
+            
+            .filter-bar {
+                background: linear-gradient(90deg, #e53e3e 0%, #c53030 100%);
+                height: 4px;
+                width: 100%;
+            }
+            
+            .twitter-filter-content {
+                padding: 12px 16px;
+            }
+            
+            .filter-info {
                 display: flex;
                 align-items: center;
-                justify-content: center;
                 gap: 8px;
+                flex-wrap: wrap;
             }
             
             .filter-icon {
                 font-size: 16px;
+                flex-shrink: 0;
             }
             
             .filter-text {
                 font-size: 14px;
-                font-weight: 500;
+                color: #742a2a;
+                flex: 1;
+                min-width: 200px;
             }
             
-            .show-post-btn {
-                background: #1da1f2;
+            .filter-text strong {
+                color: #c53030;
+            }
+            
+            .filter-reason {
+                font-size: 12px;
+                color: #a0aec0;
+                font-style: italic;
+                display: block;
+                margin-top: 4px;
+                padding: 4px 8px;
+                background: rgba(229, 62, 62, 0.1);
+                border-radius: 8px;
+                border-left: 3px solid #e53e3e;
+            }
+            
+            .filter-actions {
+                display: flex;
+                gap: 8px;
+                margin-top: 8px;
+                width: 100%;
+            }
+            
+            .show-temp-btn, .hide-permanent-btn {
+                background: #e53e3e;
                 color: white;
                 border: none;
-                padding: 4px 12px;
+                padding: 6px 12px;
                 border-radius: 16px;
                 font-size: 12px;
                 cursor: pointer;
-                margin-left: 8px;
+                transition: background 0.2s ease;
+                font-weight: 500;
             }
             
-            .show-post-btn:hover {
-                background: #1a91da;
+            .show-temp-btn:hover {
+                background: #c53030;
+            }
+            
+            .hide-permanent-btn {
+                background: #718096;
+            }
+            
+            .hide-permanent-btn:hover {
+                background: #4a5568;
             }
             
             .filtered-tweet {
-                transition: opacity 0.3s ease;
+                transition: all 0.3s ease;
+                border: 1px solid #fed7d7;
+                border-radius: 12px;
+                margin: 8px 0;
+                position: relative;
+            }
+            
+            .filtered-tweet::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 3px;
+                background: linear-gradient(90deg, #e53e3e 0%, #c53030 100%);
+                border-radius: 12px 12px 0 0;
+            }
+            
+            .temporarily-shown + .filtered-tweet {
+                opacity: 0.7;
+                background: #fff5f5;
+            }
+            
+            .temporarily-shown .show-temp-btn {
+                background: #38a169;
+            }
+            
+            .temporarily-shown .show-temp-btn:hover {
+                background: #2f855a;
+            }
+            
+            /* Pulse animation for newly filtered posts */
+            @keyframes filterPulse {
+                0% { border-color: #e53e3e; }
+                50% { border-color: #c53030; box-shadow: 0 0 20px rgba(229, 62, 62, 0.3); }
+                100% { border-color: #e53e3e; }
+            }
+            
+            .twitter-filter-indicator.new-filter {
+                animation: filterPulse 2s ease-in-out;
+            }
+            
+            /* Hide indicator when post is temporarily shown */
+            .temporarily-shown {
+                opacity: 0.8;
+                border-style: dashed;
+            }
+            
+            .temporarily-shown .filter-text {
+                color: #38a169;
+            }
+            
+            .temporarily-shown .filter-text strong {
+                color: #2f855a;
             }
         `;
 
         document.head.appendChild(styles);
+    }
+
+    // Helper method to escape HTML
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Get specific reason why post was filtered
+    getFilterReason(tweetElement, filter) {
+        switch (filter.type) {
+            case 'keywords':
+                const tweetText = this.getTweetText(tweetElement).toLowerCase();
+                const matchedKeywords = filter.keywords.filter(keyword =>
+                    tweetText.includes(keyword.toLowerCase())
+                );
+                return matchedKeywords.length > 0 ? `Contains: "${matchedKeywords[0]}"` : '';
+            case 'video':
+                return 'Contains video content';
+            case 'links':
+                return 'Contains external links';
+            case 'retweets':
+                return 'Is a retweet';
+            case 'verified':
+                return 'From verified user';
+            case 'engagement':
+                const engagementText = this.getTweetText(tweetElement).toLowerCase();
+                const engagementPatterns = [
+                    'like if you', 'retweet if', 'rt if', 'agree if', 'comment if',
+                    'share if', 'follow if', 'like this if', 'retweet this if',
+                    'say yes if', 'type yes if', 'drop a', 'drop your', 'who else',
+                    'am i the only one', 'unpopular opinion', 'controversial take',
+                    'change my mind', 'prove me wrong', 'hot take'
+                ];
+                const matched = engagementPatterns.find(pattern =>
+                    engagementText.includes(pattern)
+                );
+                return matched ? `Engagement bait: "${matched}"` : 'Engagement bait detected';
+            default:
+                return '';
+        }
     }
 
     // Public method to get stats
