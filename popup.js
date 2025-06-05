@@ -1,6 +1,6 @@
-// Twitter Feed Filter - Popup Script
+// X Feed Filter - Popup Script
 
-class TwitterFilterManager {
+class XFeedFilterManager {
     constructor() {
         this.filters = [];
         this.init();
@@ -187,8 +187,8 @@ class TwitterFilterManager {
 
     async loadFilters() {
         try {
-            const result = await chrome.storage.sync.get(['twitterFilters']);
-            this.filters = result.twitterFilters || [];
+            const result = await chrome.storage.sync.get(['xFilters']);
+            this.filters = result.xFilters || [];
         } catch (error) {
             console.error('Error loading filters:', error);
             this.filters = [];
@@ -197,7 +197,7 @@ class TwitterFilterManager {
 
     async saveFilters() {
         try {
-            await chrome.storage.sync.set({ twitterFilters: this.filters });
+            await chrome.storage.sync.set({ xFilters: this.filters });
         } catch (error) {
             console.error('Error saving filters:', error);
             this.showStatus('Error saving filters', 'error');
@@ -224,7 +224,7 @@ class TwitterFilterManager {
 
         let statusText = `${activeFilters} of ${totalFilters} filters active`;
         if (totalFilters === 0) {
-            statusText = 'Ready to filter your Twitter feed!';
+            statusText = 'Ready to filter your X feed!';
         }
 
         document.getElementById('statusText').textContent = statusText;
@@ -246,7 +246,7 @@ class TwitterFilterManager {
 }
 
 // Initialize the filter manager
-const filterManager = new TwitterFilterManager();
+const filterManager = new XFeedFilterManager();
 
 // Handle messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

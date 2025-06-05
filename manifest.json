@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "Twitter Feed Filter",
+    "name": "X Feed Filter",
     "version": "1.0",
-    "description": "Filter Twitter feed by hiding posts based on custom rules and keywords.",
+    "description": "Filter X feed by hiding posts based on custom rules and keywords.",
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
