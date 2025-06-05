@@ -662,6 +662,9 @@ class TwitterFeedFilter {
                     <span class="filter-icon">🚫</span>
                     <span class="filter-text">Post filtered by: <strong>${this.escapeHtml(filterName)}</strong></span>
                     ${filterReason ? `<span class="filter-reason">${this.escapeHtml(filterReason)}</span>` : ''}
+                    <div class="filter-hint">
+                        💡 Hint: To disable this view, enable "Completely Hide Filtered Content" in extension options
+                    </div>
                     <div class="filter-actions">
                         <button class="show-temp-btn" data-action="show-temp">Show Temporarily</button>
                         <button class="hide-permanent-btn" data-action="hide-permanent">Hide Completely</button>
@@ -716,50 +719,27 @@ class TwitterFeedFilter {
         styles.textContent = `
             /* Detect Twitter theme for dynamic styling */
             .twitter-filter-indicator {
-                background: var(--twitter-bg-primary, rgb(255, 255, 255));
-                border: 1px solid var(--twitter-border-color, rgb(207, 217, 222));
-                border-radius: 16px;
-                margin: 12px 0;
+                background: transparent;
+                border: none;
+                border-radius: 0;
+                margin: 0;
                 padding: 0;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 position: relative;
-                overflow: hidden;
-                transition: all 0.2s ease;
-            }
-            
-            /* Dark mode detection and styling */
-            [data-theme="dark"] .twitter-filter-indicator,
-            html[style*="color-scheme: dark"] .twitter-filter-indicator,
-            body[style*="background-color: rgb(0, 0, 0)"] .twitter-filter-indicator,
-            .twitter-filter-indicator:has(~ [data-testid="tweet"] [style*="color: rgb(231, 233, 234)"]) {
-                background: rgb(22, 24, 28);
-                border-color: rgb(47, 51, 54);
+                overflow: visible;
+                transition: none;
             }
             
             .twitter-filter-indicator:hover {
-                background: var(--twitter-bg-hover, rgb(247, 249, 249));
-            }
-            
-            [data-theme="dark"] .twitter-filter-indicator:hover,
-            html[style*="color-scheme: dark"] .twitter-filter-indicator:hover,
-            body[style*="background-color: rgb(0, 0, 0)"] .twitter-filter-indicator:hover {
-                background: rgb(28, 30, 34);
+                background: transparent;
             }
             
             .filter-bar {
-                background: var(--twitter-border-color, rgb(207, 217, 222));
-                height: 1px;
-                width: 100%;
-            }
-            
-            [data-theme="dark"] .filter-bar,
-            html[style*="color-scheme: dark"] .filter-bar,
-            body[style*="background-color: rgb(0, 0, 0)"] .filter-bar {
-                background: rgb(47, 51, 54);
+                display: none;
             }
             
             .twitter-filter-content {
-                padding: 12px 16px;
+                padding: 12px 16px 12px 64px;
             }
             
             .filter-info {
@@ -819,6 +799,20 @@ class TwitterFeedFilter {
                 background: rgb(28, 30, 34);
                 border-left-color: rgb(47, 51, 54);
             }
+
+            .filter-hint {
+                font-size: 11px;
+                color: var(--twitter-text-tertiary, rgb(113, 118, 123));
+                margin-top: 4px;
+                padding: 4px 0;
+                opacity: 0.8;
+            }
+            
+            [data-theme="dark"] .filter-hint,
+            html[style*="color-scheme: dark"] .filter-hint,
+            body[style*="background-color: rgb(0, 0, 0)"] .filter-hint {
+                color: rgb(113, 118, 123);
+            }
             
             .filter-actions {
                 display: flex;
@@ -867,46 +861,20 @@ class TwitterFeedFilter {
             
             .filtered-tweet {
                 transition: all 0.2s ease;
-                border: 1px solid var(--twitter-border-color, rgb(207, 217, 222));
-                border-radius: 16px;
-                margin: 8px 0;
+                border: none;
+                border-radius: 0;
+                margin: 0;
                 position: relative;
-                background: var(--twitter-bg-primary, rgb(255, 255, 255));
-            }
-            
-            [data-theme="dark"] .filtered-tweet,
-            html[style*="color-scheme: dark"] .filtered-tweet,
-            body[style*="background-color: rgb(0, 0, 0)"] .filtered-tweet {
-                border-color: rgb(47, 51, 54);
-                background: rgb(22, 24, 28);
+                background: transparent;
             }
             
             .filtered-tweet::before {
-                content: "";
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                height: 1px;
-                background: var(--twitter-border-color, rgb(207, 217, 222));
-                border-radius: 16px 16px 0 0;
-            }
-            
-            [data-theme="dark"] .filtered-tweet::before,
-            html[style*="color-scheme: dark"] .filtered-tweet::before,
-            body[style*="background-color: rgb(0, 0, 0)"] .filtered-tweet::before {
-                background: rgb(47, 51, 54);
+                display: none;
             }
             
             .temporarily-shown + .filtered-tweet {
                 opacity: 0.8;
-                background: var(--twitter-bg-secondary, rgb(247, 249, 249));
-            }
-            
-            [data-theme="dark"] .temporarily-shown + .filtered-tweet,
-            html[style*="color-scheme: dark"] .temporarily-shown + .filtered-tweet,
-            body[style*="background-color: rgb(0, 0, 0)"] .temporarily-shown + .filtered-tweet {
-                background: rgb(28, 30, 34);
+                background: transparent;
             }
             
             .temporarily-shown .show-temp-btn {
@@ -925,8 +893,7 @@ class TwitterFeedFilter {
             /* Subtle state changes */
             .temporarily-shown {
                 opacity: 0.9;
-                border-style: solid;
-                border-width: 1px;
+                border: none;
             }
             
             .temporarily-shown .filter-text {
