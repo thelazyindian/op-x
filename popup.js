@@ -209,14 +209,45 @@ class XFilterManager {
     async updateContentScript() {
         try {
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab && (tab.url.includes('twitter.com') || tab.url.includes('x.com'))) {
-                await chrome.tabs.sendMessage(tab.id, {
-                    action: 'updateFilters',
-                    filters: this.filters.filter(f => f.enabled)
-                });
+
+            if (!tab) {
+                console.log('No active tab found');
+                return;
             }
+
+            if (!tab.url || !(tab.url.includes('twitter.com') || tab.url.includes('x.com'))) {
+                console.log('Not on X/Twitter, skipping content script update');
+                return;
+            }
+
+            // Check if tab is fully loaded
+            if (tab.status !== 'complete') {
+                console.log('Tab still loading, skipping content script update');
+                return;
+            }
+
+            // Try to send message with timeout and better error handling
+            const message = {
+                action: 'updateFilters',
+                filters: this.filters.filter(f => f.enabled)
+            };
+
+            // Add a small delay to ensure content script is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            await chrome.tabs.sendMessage(tab.id, message);
+            console.log('Successfully updated content script');
+
         } catch (error) {
-            console.error('Error updating content script:', error);
+            // Handle specific connection errors gracefully
+            if (error.message.includes('Could not establish connection') ||
+                error.message.includes('Receiving end does not exist') ||
+                error.message.includes('message channel closed') ||
+                error.message.includes('Extension context invalidated')) {
+                console.log('Content script not ready - this is normal on page load/refresh');
+            } else {
+                console.error('Unexpected error updating content script:', error);
+            }
         }
     }
 
