@@ -13,8 +13,10 @@ class TwitterFeedFilter {
     async init() {
         console.log('🐦 Twitter Feed Filter initialized');
         await this.loadFilters();
+        this.detectAndApplyTheme();
         this.startFiltering();
         this.setupMessageListener();
+        this.setupThemeObserver();
     }
 
     async loadFilters() {
@@ -470,27 +472,48 @@ class TwitterFeedFilter {
         const styles = document.createElement('style');
         styles.id = 'twitter-filter-styles';
         styles.textContent = `
+            /* Detect Twitter theme for dynamic styling */
             .twitter-filter-indicator {
-                background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
-                border: 2px solid #e53e3e;
-                border-radius: 12px;
+                background: var(--twitter-bg-primary, rgb(255, 255, 255));
+                border: 1px solid var(--twitter-border-color, rgb(207, 217, 222));
+                border-radius: 16px;
                 margin: 12px 0;
                 padding: 0;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
                 position: relative;
                 overflow: hidden;
-                transition: all 0.3s ease;
+                transition: all 0.2s ease;
+            }
+            
+            /* Dark mode detection and styling */
+            [data-theme="dark"] .twitter-filter-indicator,
+            html[style*="color-scheme: dark"] .twitter-filter-indicator,
+            body[style*="background-color: rgb(0, 0, 0)"] .twitter-filter-indicator,
+            .twitter-filter-indicator:has(~ [data-testid="tweet"] [style*="color: rgb(231, 233, 234)"]) {
+                background: rgb(22, 24, 28);
+                border-color: rgb(47, 51, 54);
             }
             
             .twitter-filter-indicator:hover {
-                border-color: #c53030;
-                box-shadow: 0 4px 12px rgba(229, 62, 62, 0.15);
+                background: var(--twitter-bg-hover, rgb(247, 249, 249));
+            }
+            
+            [data-theme="dark"] .twitter-filter-indicator:hover,
+            html[style*="color-scheme: dark"] .twitter-filter-indicator:hover,
+            body[style*="background-color: rgb(0, 0, 0)"] .twitter-filter-indicator:hover {
+                background: rgb(28, 30, 34);
             }
             
             .filter-bar {
-                background: linear-gradient(90deg, #e53e3e 0%, #c53030 100%);
-                height: 4px;
+                background: var(--twitter-border-color, rgb(207, 217, 222));
+                height: 1px;
                 width: 100%;
+            }
+            
+            [data-theme="dark"] .filter-bar,
+            html[style*="color-scheme: dark"] .filter-bar,
+            body[style*="background-color: rgb(0, 0, 0)"] .filter-bar {
+                background: rgb(47, 51, 54);
             }
             
             .twitter-filter-content {
@@ -505,31 +528,54 @@ class TwitterFeedFilter {
             }
             
             .filter-icon {
-                font-size: 16px;
+                font-size: 14px;
                 flex-shrink: 0;
+                opacity: 0.6;
             }
             
             .filter-text {
-                font-size: 14px;
-                color: #742a2a;
+                font-size: 13px;
+                color: var(--twitter-text-secondary, rgb(83, 100, 113));
                 flex: 1;
                 min-width: 200px;
+                font-weight: 400;
+            }
+            
+            [data-theme="dark"] .filter-text,
+            html[style*="color-scheme: dark"] .filter-text,
+            body[style*="background-color: rgb(0, 0, 0)"] .filter-text {
+                color: rgb(113, 118, 123);
             }
             
             .filter-text strong {
-                color: #c53030;
+                color: var(--twitter-text-primary, rgb(15, 20, 25));
+                font-weight: 600;
+            }
+            
+            [data-theme="dark"] .filter-text strong,
+            html[style*="color-scheme: dark"] .filter-text strong,
+            body[style*="background-color: rgb(0, 0, 0)"] .filter-text strong {
+                color: rgb(231, 233, 234);
             }
             
             .filter-reason {
-                font-size: 12px;
-                color: #a0aec0;
+                font-size: 11px;
+                color: var(--twitter-text-tertiary, rgb(113, 118, 123));
                 font-style: italic;
                 display: block;
                 margin-top: 4px;
                 padding: 4px 8px;
-                background: rgba(229, 62, 62, 0.1);
-                border-radius: 8px;
-                border-left: 3px solid #e53e3e;
+                background: var(--twitter-bg-secondary, rgb(247, 249, 249));
+                border-radius: 6px;
+                border-left: 2px solid var(--twitter-border-color, rgb(207, 217, 222));
+            }
+            
+            [data-theme="dark"] .filter-reason,
+            html[style*="color-scheme: dark"] .filter-reason,
+            body[style*="background-color: rgb(0, 0, 0)"] .filter-reason {
+                color: rgb(113, 118, 123);
+                background: rgb(28, 30, 34);
+                border-left-color: rgb(47, 51, 54);
             }
             
             .filter-actions {
@@ -540,35 +586,57 @@ class TwitterFeedFilter {
             }
             
             .show-temp-btn, .hide-permanent-btn {
-                background: #e53e3e;
+                background: var(--twitter-color-blue, rgb(29, 161, 242));
                 color: white;
                 border: none;
                 padding: 6px 12px;
-                border-radius: 16px;
+                border-radius: 20px;
                 font-size: 12px;
                 cursor: pointer;
                 transition: background 0.2s ease;
-                font-weight: 500;
+                font-weight: 600;
+                min-height: 32px;
             }
             
             .show-temp-btn:hover {
-                background: #c53030;
+                background: var(--twitter-color-blue-hover, rgb(26, 145, 218));
             }
             
             .hide-permanent-btn {
-                background: #718096;
+                background: var(--twitter-text-secondary, rgb(83, 100, 113));
             }
             
             .hide-permanent-btn:hover {
-                background: #4a5568;
+                background: var(--twitter-text-primary, rgb(15, 20, 25));
+            }
+            
+            [data-theme="dark"] .hide-permanent-btn,
+            html[style*="color-scheme: dark"] .hide-permanent-btn,
+            body[style*="background-color: rgb(0, 0, 0)"] .hide-permanent-btn {
+                background: rgb(113, 118, 123);
+            }
+            
+            [data-theme="dark"] .hide-permanent-btn:hover,
+            html[style*="color-scheme: dark"] .hide-permanent-btn:hover,
+            body[style*="background-color: rgb(0, 0, 0)"] .hide-permanent-btn:hover {
+                background: rgb(231, 233, 234);
+                color: rgb(15, 20, 25);
             }
             
             .filtered-tweet {
-                transition: all 0.3s ease;
-                border: 1px solid #fed7d7;
-                border-radius: 12px;
+                transition: all 0.2s ease;
+                border: 1px solid var(--twitter-border-color, rgb(207, 217, 222));
+                border-radius: 16px;
                 margin: 8px 0;
                 position: relative;
+                background: var(--twitter-bg-primary, rgb(255, 255, 255));
+            }
+            
+            [data-theme="dark"] .filtered-tweet,
+            html[style*="color-scheme: dark"] .filtered-tweet,
+            body[style*="background-color: rgb(0, 0, 0)"] .filtered-tweet {
+                border-color: rgb(47, 51, 54);
+                background: rgb(22, 24, 28);
             }
             
             .filtered-tweet::before {
@@ -577,47 +645,75 @@ class TwitterFeedFilter {
                 top: 0;
                 left: 0;
                 right: 0;
-                height: 3px;
-                background: linear-gradient(90deg, #e53e3e 0%, #c53030 100%);
-                border-radius: 12px 12px 0 0;
+                height: 1px;
+                background: var(--twitter-border-color, rgb(207, 217, 222));
+                border-radius: 16px 16px 0 0;
+            }
+            
+            [data-theme="dark"] .filtered-tweet::before,
+            html[style*="color-scheme: dark"] .filtered-tweet::before,
+            body[style*="background-color: rgb(0, 0, 0)"] .filtered-tweet::before {
+                background: rgb(47, 51, 54);
             }
             
             .temporarily-shown + .filtered-tweet {
-                opacity: 0.7;
-                background: #fff5f5;
+                opacity: 0.8;
+                background: var(--twitter-bg-secondary, rgb(247, 249, 249));
+            }
+            
+            [data-theme="dark"] .temporarily-shown + .filtered-tweet,
+            html[style*="color-scheme: dark"] .temporarily-shown + .filtered-tweet,
+            body[style*="background-color: rgb(0, 0, 0)"] .temporarily-shown + .filtered-tweet {
+                background: rgb(28, 30, 34);
             }
             
             .temporarily-shown .show-temp-btn {
-                background: #38a169;
+                background: var(--twitter-color-green, rgb(0, 186, 124));
             }
             
             .temporarily-shown .show-temp-btn:hover {
-                background: #2f855a;
+                background: var(--twitter-color-green-hover, rgb(0, 167, 111));
             }
             
-            /* Pulse animation for newly filtered posts */
-            @keyframes filterPulse {
-                0% { border-color: #e53e3e; }
-                50% { border-color: #c53030; box-shadow: 0 0 20px rgba(229, 62, 62, 0.3); }
-                100% { border-color: #e53e3e; }
-            }
-            
+            /* Remove pulse animation - too attention grabbing */
             .twitter-filter-indicator.new-filter {
-                animation: filterPulse 2s ease-in-out;
+                /* No animation */
             }
             
-            /* Hide indicator when post is temporarily shown */
+            /* Subtle state changes */
             .temporarily-shown {
-                opacity: 0.8;
-                border-style: dashed;
+                opacity: 0.9;
+                border-style: solid;
+                border-width: 1px;
             }
             
             .temporarily-shown .filter-text {
-                color: #38a169;
+                color: var(--twitter-color-green, rgb(0, 186, 124));
             }
             
             .temporarily-shown .filter-text strong {
-                color: #2f855a;
+                color: var(--twitter-color-green, rgb(0, 186, 124));
+            }
+            
+            /* Twitter-like spacing and typography */
+            .twitter-filter-indicator * {
+                box-sizing: border-box;
+            }
+            
+            /* Match Twitter's button styling more closely */
+            .show-temp-btn, .hide-permanent-btn {
+                border-radius: 9999px;
+                font-family: inherit;
+                text-decoration: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                outline: none;
+            }
+            
+            .show-temp-btn:focus, .hide-permanent-btn:focus {
+                outline: 2px solid var(--twitter-color-blue, rgb(29, 161, 242));
+                outline-offset: 2px;
             }
         `;
 
@@ -674,6 +770,101 @@ class TwitterFeedFilter {
             hiddenCount: this.hiddenCount,
             activeFilters: this.filters.length
         };
+    }
+
+    detectAndApplyTheme() {
+        // Detect Twitter's current theme
+        const isDarkMode = this.isTwitterDarkMode();
+
+        // Add theme class to filter indicators
+        document.documentElement.setAttribute('data-twitter-theme', isDarkMode ? 'dark' : 'light');
+
+        // Update CSS custom properties based on detected theme
+        this.updateThemeProperties(isDarkMode);
+    }
+
+    isTwitterDarkMode() {
+        // Method 1: Check for dark mode indicators in the body style
+        const bodyBg = window.getComputedStyle(document.body).backgroundColor;
+        if (bodyBg.includes('rgb(0, 0, 0)') || bodyBg.includes('rgb(21, 32, 43)') || bodyBg.includes('rgb(22, 24, 28)')) {
+            return true;
+        }
+
+        // Method 2: Check for dark theme class or attribute
+        if (document.body.classList.contains('dark-theme') ||
+            document.documentElement.getAttribute('data-theme') === 'dark' ||
+            document.body.getAttribute('data-theme') === 'dark') {
+            return true;
+        }
+
+        // Method 3: Check color scheme meta tag or CSS
+        const colorScheme = window.getComputedStyle(document.documentElement).colorScheme;
+        if (colorScheme && colorScheme.includes('dark')) {
+            return true;
+        }
+
+        // Method 4: Check Twitter's specific elements
+        const tweetElements = document.querySelectorAll('[data-testid="tweet"]');
+        if (tweetElements.length > 0) {
+            const firstTweet = tweetElements[0];
+            const tweetBg = window.getComputedStyle(firstTweet).backgroundColor;
+            if (tweetBg.includes('rgb(22, 24, 28)') || tweetBg.includes('rgb(21, 32, 43)')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    updateThemeProperties(isDarkMode) {
+        const root = document.documentElement;
+
+        if (isDarkMode) {
+            root.style.setProperty('--twitter-bg-primary', 'rgb(22, 24, 28)');
+            root.style.setProperty('--twitter-bg-secondary', 'rgb(28, 30, 34)');
+            root.style.setProperty('--twitter-bg-hover', 'rgb(28, 30, 34)');
+            root.style.setProperty('--twitter-border-color', 'rgb(47, 51, 54)');
+            root.style.setProperty('--twitter-text-primary', 'rgb(231, 233, 234)');
+            root.style.setProperty('--twitter-text-secondary', 'rgb(113, 118, 123)');
+            root.style.setProperty('--twitter-text-tertiary', 'rgb(113, 118, 123)');
+        } else {
+            root.style.setProperty('--twitter-bg-primary', 'rgb(255, 255, 255)');
+            root.style.setProperty('--twitter-bg-secondary', 'rgb(247, 249, 249)');
+            root.style.setProperty('--twitter-bg-hover', 'rgb(247, 249, 249)');
+            root.style.setProperty('--twitter-border-color', 'rgb(207, 217, 222)');
+            root.style.setProperty('--twitter-text-primary', 'rgb(15, 20, 25)');
+            root.style.setProperty('--twitter-text-secondary', 'rgb(83, 100, 113)');
+            root.style.setProperty('--twitter-text-tertiary', 'rgb(113, 118, 123)');
+        }
+
+        // Twitter brand colors (consistent across themes)
+        root.style.setProperty('--twitter-color-blue', 'rgb(29, 161, 242)');
+        root.style.setProperty('--twitter-color-blue-hover', 'rgb(26, 145, 218)');
+        root.style.setProperty('--twitter-color-green', 'rgb(0, 186, 124)');
+        root.style.setProperty('--twitter-color-green-hover', 'rgb(0, 167, 111)');
+    }
+
+    setupThemeObserver() {
+        // Watch for theme changes
+        const themeObserver = new MutationObserver(() => {
+            const newTheme = this.isTwitterDarkMode();
+            const currentTheme = document.documentElement.getAttribute('data-twitter-theme');
+
+            if ((newTheme && currentTheme !== 'dark') || (!newTheme && currentTheme !== 'light')) {
+                this.detectAndApplyTheme();
+            }
+        });
+
+        // Observe changes to body and html that might indicate theme changes
+        themeObserver.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['class', 'style', 'data-theme']
+        });
+
+        themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['class', 'style', 'data-theme']
+        });
     }
 }
 
