@@ -5,7 +5,8 @@ class TwitterFeedFilter {
         this.filters = [];
         this.exceptions = {
             followingOnly: false,
-            usernames: []
+            usernames: [],
+            completelyHide: false
         };
         this.hiddenCount = 0;
         this.isRunning = false;
@@ -40,14 +41,16 @@ class TwitterFeedFilter {
             const result = await chrome.storage.sync.get(['twitterExceptions']);
             this.exceptions = result.twitterExceptions || {
                 followingOnly: false,
-                usernames: []
+                usernames: [],
+                completelyHide: false
             };
-            console.log(`Loaded exceptions: following=${this.exceptions.followingOnly}, usernames=${this.exceptions.usernames.length}`);
+            console.log(`Loaded exceptions: following=${this.exceptions.followingOnly}, usernames=${this.exceptions.usernames.length}, completelyHide=${this.exceptions.completelyHide}`);
         } catch (error) {
             console.error('Error loading exceptions:', error);
             this.exceptions = {
                 followingOnly: false,
-                usernames: []
+                usernames: [],
+                completelyHide: false
             };
         }
     }
@@ -56,9 +59,9 @@ class TwitterFeedFilter {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'updateFilters') {
                 this.filters = request.filters;
-                this.exceptions = request.exceptions || { followingOnly: false, usernames: [] };
+                this.exceptions = request.exceptions || { followingOnly: false, usernames: [], completelyHide: false };
                 console.log(`Updated to ${this.filters.length} active filters`);
-                console.log(`Updated exceptions: following=${this.exceptions.followingOnly}, usernames=${this.exceptions.usernames.length}`);
+                console.log(`Updated exceptions: following=${this.exceptions.followingOnly}, usernames=${this.exceptions.usernames.length}, completelyHide=${this.exceptions.completelyHide}`);
                 this.cleanupDuplicateIndicators();
                 this.filterExistingPosts();
                 sendResponse({ success: true });
@@ -625,6 +628,16 @@ class TwitterFeedFilter {
         tweetElement.classList.add('filtered-tweet');
         tweetElement.setAttribute('data-filter-processed', 'true');
 
+        // Check if we should completely hide or show indicator
+        if (this.exceptions.completelyHide) {
+            // Completely hide the tweet without any indication
+            tweetElement.style.display = 'none';
+            this.hiddenCount++;
+            console.log(`Hidden tweet #${this.hiddenCount} (completely hidden)`);
+            return;
+        }
+
+        // Show filter indicator (original behavior)
         // Determine which filter matched
         let matchedFilter = null;
         let filterReason = '';

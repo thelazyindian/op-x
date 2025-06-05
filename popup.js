@@ -5,7 +5,8 @@ class XFilterManager {
         this.filters = [];
         this.exceptions = {
             followingOnly: false,
-            usernames: []
+            usernames: [],
+            completelyHide: false
         };
         this.predefinedFilters = {
             ads: { name: "Hide Ads & Promoted Posts", type: "ads", keywords: [] },
@@ -121,6 +122,12 @@ class XFilterManager {
             this.updateFollowingException(e.target.checked);
         });
 
+        // Completely hide filtered toggle
+        const completelyHideFiltered = document.getElementById('completelyHideFiltered');
+        completelyHideFiltered.addEventListener('change', (e) => {
+            this.updateCompletelyHideFiltered(e.target.checked);
+        });
+
         // Username exceptions textarea
         const usernameExceptions = document.getElementById('usernameExceptions');
         let usernameTimeout;
@@ -214,6 +221,11 @@ class XFilterManager {
             followingException.checked = this.exceptions.followingOnly;
         }
 
+        const completelyHideFiltered = document.getElementById('completelyHideFiltered');
+        if (completelyHideFiltered) {
+            completelyHideFiltered.checked = this.exceptions.completelyHide;
+        }
+
         const usernameExceptions = document.getElementById('usernameExceptions');
         if (usernameExceptions) {
             usernameExceptions.value = this.exceptions.usernames.join('\n');
@@ -244,13 +256,15 @@ class XFilterManager {
             const result = await chrome.storage.sync.get(['twitterExceptions']);
             this.exceptions = result.twitterExceptions || {
                 followingOnly: false,
-                usernames: []
+                usernames: [],
+                completelyHide: false
             };
         } catch (error) {
             console.error('Error loading exceptions:', error);
             this.exceptions = {
                 followingOnly: false,
-                usernames: []
+                usernames: [],
+                completelyHide: false
             };
         }
     }
@@ -266,6 +280,13 @@ class XFilterManager {
 
     async updateFollowingException(enabled) {
         this.exceptions.followingOnly = enabled;
+        await this.saveExceptions();
+        this.updateContentScript();
+        this.updateStatus();
+    }
+
+    async updateCompletelyHideFiltered(enabled) {
+        this.exceptions.completelyHide = enabled;
         await this.saveExceptions();
         this.updateContentScript();
         this.updateStatus();
@@ -343,6 +364,9 @@ class XFilterManager {
             let statusMessage = 'Filters active and working';
             if (hasExceptions) {
                 statusMessage += ' (with exceptions)';
+            }
+            if (this.exceptions.completelyHide) {
+                statusMessage += ' - completely hidden';
             }
             statusText.textContent = statusMessage;
             enabledCount.textContent = `${activeFilters} active`;
