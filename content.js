@@ -219,21 +219,38 @@ class TwitterFeedFilter {
     }
 
     isExemptFromFiltering(tweetElement) {
-        // Check username exceptions
+        // Check username exceptions first
         if (this.exceptions.usernames.length > 0) {
             const username = this.getTweetUsername(tweetElement);
-            if (username && this.exceptions.usernames.some(exemptUser =>
-                exemptUser.toLowerCase() === username.toLowerCase()
-            )) {
-                console.log(`Tweet from ${username} is exempt (username exception)`);
-                return true;
+            console.log(`Checking username exceptions for: ${username}`);
+            console.log(`Exception list:`, this.exceptions.usernames);
+
+            if (username) {
+                // Normalize both the extracted username and exception list for comparison
+                const normalizedUsername = username.toLowerCase().replace(/^@/, '');
+
+                const isExempt = this.exceptions.usernames.some(exemptUser => {
+                    const normalizedExemptUser = exemptUser.toLowerCase().replace(/^@/, '');
+                    const matches = normalizedExemptUser === normalizedUsername;
+                    if (matches) {
+                        console.log(`✅ Username match found: ${exemptUser} === ${username}`);
+                    }
+                    return matches;
+                });
+
+                if (isExempt) {
+                    console.log(`🚫 Tweet from ${username} is exempt (username exception)`);
+                    return true;
+                }
+            } else {
+                console.log('⚠️ Could not extract username for exception checking');
             }
         }
 
         // Check following exception
         if (this.exceptions.followingOnly) {
             if (this.isFromFollowedUser(tweetElement)) {
-                console.log(`Tweet is exempt (following exception)`);
+                console.log(`🚫 Tweet is exempt (following exception)`);
                 return true;
             }
         }
@@ -242,36 +259,89 @@ class TwitterFeedFilter {
     }
 
     getTweetUsername(tweetElement) {
-        // Look for username in various possible locations
-        const usernameSelectors = [
-            'a[href*="/"]',
-            '[data-testid="User-Name"] a',
-            '[data-testid="User-Names"] a'
+        // Method 1: Look for the main profile link in the tweet header
+        // This is the most reliable method for getting the actual tweet author
+        const profileLinkSelectors = [
+            '[data-testid="User-Name"] a[href^="/"]',
+            '[data-testid="User-Names"] a[href^="/"]',
+            'a[href^="/"][role="link"]:not([href*="/status/"])'
         ];
 
-        for (const selector of usernameSelectors) {
-            const userLink = tweetElement.querySelector(selector);
-            if (userLink) {
-                const href = userLink.getAttribute('href');
-                if (href && href.match(/^\/[^\/]+$/)) {
-                    // Extract username from href like "/username"
-                    const username = href.substring(1);
-                    if (username && !username.includes('/') && username !== 'i') {
+        for (const selector of profileLinkSelectors) {
+            const profileLinks = tweetElement.querySelectorAll(selector);
+            for (const link of profileLinks) {
+                const href = link.getAttribute('href');
+                if (href) {
+                    // Match usernames like "/username" or "/username?param=value"
+                    const usernameMatch = href.match(/^\/([a-zA-Z0-9_]+)(?:\?|$)/);
+                    if (usernameMatch) {
+                        const username = usernameMatch[1];
+                        // Exclude Twitter system paths
+                        const excludedPaths = ['i', 'home', 'explore', 'notifications', 'messages', 'bookmarks', 'lists', 'profile', 'more', 'search', 'settings', 'help', 'display'];
+                        if (!excludedPaths.includes(username.toLowerCase())) {
+                            console.log(`Found username via profile link: @${username}`);
+                            return `@${username}`;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Method 2: Look for @username in the tweet header area specifically
+        const userNameAreas = [
+            tweetElement.querySelector('[data-testid="User-Name"]'),
+            tweetElement.querySelector('[data-testid="User-Names"]'),
+            tweetElement.querySelector('[data-testid="UserName"]')
+        ].filter(Boolean);
+
+        for (const area of userNameAreas) {
+            // Look for spans containing @username
+            const spans = area.querySelectorAll('span');
+            for (const span of spans) {
+                const text = span.textContent.trim();
+                if (text.match(/^@[a-zA-Z0-9_]+$/)) {
+                    console.log(`Found username via @mention in header: ${text}`);
+                    return text;
+                }
+            }
+
+            // Look for any text that looks like a username
+            const allText = area.textContent;
+            const usernameMatch = allText.match(/@([a-zA-Z0-9_]+)/);
+            if (usernameMatch) {
+                console.log(`Found username via text pattern in header: @${usernameMatch[1]}`);
+                return `@${usernameMatch[1]}`;
+            }
+        }
+
+        // Method 3: Look for the first non-status link in the tweet (fallback)
+        const allLinks = tweetElement.querySelectorAll('a[href^="/"]');
+        for (const link of allLinks) {
+            const href = link.getAttribute('href');
+            if (href && !href.includes('/status/') && !href.includes('/photo/') && !href.includes('/video/')) {
+                const usernameMatch = href.match(/^\/([a-zA-Z0-9_]+)(?:\/|$|\?)/);
+                if (usernameMatch) {
+                    const username = usernameMatch[1];
+                    const excludedPaths = ['i', 'home', 'explore', 'notifications', 'messages', 'bookmarks', 'lists', 'profile', 'more', 'search', 'settings', 'help', 'display'];
+                    if (!excludedPaths.includes(username.toLowerCase()) && username.length <= 15) { // Twitter usernames max 15 chars
+                        console.log(`Found username via fallback link: @${username}`);
                         return `@${username}`;
                     }
                 }
             }
         }
 
-        // Try to find username in spans
-        const spans = tweetElement.querySelectorAll('span');
-        for (const span of spans) {
-            const text = span.textContent.trim();
-            if (text.startsWith('@') && text.length > 1 && !text.includes(' ')) {
-                return text;
-            }
+        // Method 4: Look for any @username pattern in the visible text (last resort)
+        const tweetText = tweetElement.textContent;
+        const mentionMatches = tweetText.match(/@([a-zA-Z0-9_]+)/g);
+        if (mentionMatches && mentionMatches.length > 0) {
+            // Use the first @mention found, assuming it might be the author
+            const firstMention = mentionMatches[0];
+            console.log(`Found username via text mention (fallback): ${firstMention}`);
+            return firstMention;
         }
 
+        console.log('Could not extract username from tweet');
         return null;
     }
 
@@ -418,71 +488,102 @@ class TwitterFeedFilter {
     }
 
     isAd(tweetElement) {
-        // Method 1: Look for "Promoted" text or indicators
+        // Method 1: Look for official "Promoted" indicators (most reliable)
         const promotedIndicators = [
-            '[data-testid="promotedIndicator"]',
-            '[aria-label*="Promoted"]',
-            '[data-testid="socialContext"]'
+            '[data-testid="promotedIndicator"]',     // Twitter's official promoted indicator
+            '[aria-label*="Promoted"]'              // Accessibility labels for promoted content
         ];
 
         for (const selector of promotedIndicators) {
             const element = tweetElement.querySelector(selector);
             if (element) {
                 const text = element.textContent.toLowerCase();
-                if (text.includes('promoted') || text.includes('ad') || text.includes('sponsored')) {
+                if (text.includes('promoted') || text.includes('sponsored')) {
                     return true;
                 }
             }
         }
 
-        // Method 2: Check for "Promoted" text anywhere in the tweet
-        const allText = tweetElement.textContent.toLowerCase();
-        if (allText.includes('promoted') || allText.includes('sponsored tweet')) {
-            return true;
-        }
-
-        // Method 3: Look for specific ad-related attributes
-        if (tweetElement.getAttribute('data-promoted') === 'true') {
-            return true;
-        }
-
-        // Method 4: Check for promotional context indicators
+        // Method 2: Check social context for promotional indicators (but exclude action buttons)
         const socialContext = tweetElement.querySelector('[data-testid="socialContext"]');
         if (socialContext) {
             const contextText = socialContext.textContent.toLowerCase();
-            if (contextText.includes('promoted') ||
-                contextText.includes('sponsored') ||
-                contextText.includes('advertisement')) {
+            // Only match if it's clearly promotional context, not action buttons
+            if (contextText.includes('promoted by') ||
+                contextText.includes('sponsored by') ||
+                contextText.includes('advertisement') ||
+                (contextText.includes('promoted') && !contextText.includes('promote this'))) {
                 return true;
             }
         }
 
-        // Method 5: Look for "Ad" labels or promotional indicators in span elements
+        // Method 3: Look for specific ad-related attributes
+        if (tweetElement.getAttribute('data-promoted') === 'true' ||
+            tweetElement.getAttribute('data-ad') === 'true') {
+            return true;
+        }
+
+        // Method 4: Check for "Promoted" or "Sponsored" labels that appear as standalone indicators
+        // But exclude buttons and interactive elements
         const spans = tweetElement.querySelectorAll('span');
         for (const span of spans) {
             const spanText = span.textContent.toLowerCase().trim();
-            if (spanText === 'promoted' ||
-                spanText === 'ad' ||
-                spanText === 'sponsored' ||
-                spanText === 'advertisement') {
+            const parentElement = span.closest('button, [role="button"], a, [data-testid*="promote"]');
+
+            // Only consider it promotional if it's not part of an interactive element
+            if (!parentElement &&
+                (spanText === 'promoted' ||
+                    spanText === 'sponsored' ||
+                    spanText === 'advertisement' ||
+                    spanText === 'ad')) {
                 return true;
             }
         }
 
-        // Method 6: Check for promotional URLs or tracking parameters
+        // Method 5: Check for promotional URLs with tracking parameters
+        // But be more specific about what constitutes a promotional link
         const links = tweetElement.querySelectorAll('a[href]');
         for (const link of links) {
             const href = link.getAttribute('href');
-            if (href && (href.includes('utm_') || href.includes('promo') || href.includes('campaign'))) {
-                return true;
+            if (href) {
+                // Look for multiple tracking parameters (more likely to be ads)
+                const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'];
+                const hasMultipleTracking = trackingParams.filter(param => href.includes(param)).length >= 2;
+
+                if (hasMultipleTracking ||
+                    href.includes('ads.twitter.com') ||
+                    href.includes('promote.twitter.com') ||
+                    (href.includes('utm_') && href.includes('promo'))) {
+                    return true;
+                }
             }
         }
 
-        // Method 7: Look for Twitter's promoted tweet structure
+        // Method 6: Look for "Promoted Tweet" or "Sponsored" text in specific contexts
+        // Exclude text that appears in action areas
+        const tweetText = this.getTweetText(tweetElement).toLowerCase();
+        const fullText = tweetElement.textContent.toLowerCase();
+
+        // Check if "promoted" appears in a promotional context, not as an action
+        if ((fullText.includes('promoted tweet') ||
+            fullText.includes('sponsored tweet') ||
+            fullText.includes('promoted by ') ||
+            fullText.includes('sponsored by ')) &&
+            !fullText.includes('promote this tweet') &&
+            !fullText.includes('promote your tweet')) {
+            return true;
+        }
+
+        // Method 7: Check tweet container, but be more specific
         const tweetContainer = tweetElement.closest('[data-testid="cellInnerDiv"]');
         if (tweetContainer) {
             const containerText = tweetContainer.textContent.toLowerCase();
-            if (containerText.includes('promoted')) {
+            // Only match if it clearly indicates a promoted post, not action buttons
+            if (containerText.includes('promoted by ') ||
+                containerText.includes('sponsored by ') ||
+                (containerText.includes('promoted') &&
+                    containerText.includes('learn more') &&
+                    !containerText.includes('promote this'))) {
                 return true;
             }
         }
@@ -992,6 +1093,86 @@ class TwitterFeedFilter {
         themeObserver.observe(document.documentElement, {
             attributes: true,
             attributeFilter: ['class', 'style', 'data-theme']
+        });
+    }
+
+    // Debug method to test username extraction - call from browser console
+    debugUsernameExtraction() {
+        console.log('🔍 Testing username extraction on visible tweets...');
+        const tweets = document.querySelectorAll('[data-testid="tweet"]');
+
+        tweets.forEach((tweet, index) => {
+            if (index < 5) { // Only test first 5 tweets to avoid spam
+                console.log(`\n--- Tweet ${index + 1} ---`);
+                const username = this.getTweetUsername(tweet);
+                console.log(`Extracted username: ${username || 'NONE'}`);
+
+                // Show some context about the tweet
+                const tweetText = this.getTweetText(tweet).substring(0, 100);
+                console.log(`Tweet text preview: "${tweetText}..."`);
+            }
+        });
+
+        console.log(`\n🎯 Current username exceptions: ${this.exceptions.usernames.join(', ')}`);
+        console.log(`📱 Following exemption enabled: ${this.exceptions.followingOnly}`);
+    }
+
+    // Debug method to test ad detection - call from browser console
+    debugAdDetection() {
+        console.log('🚫 Testing ad detection on visible tweets...');
+        const tweets = document.querySelectorAll('[data-testid="tweet"]');
+
+        tweets.forEach((tweet, index) => {
+            if (index < 10) { // Test first 10 tweets
+                console.log(`\n--- Tweet ${index + 1} ---`);
+                const isAd = this.isAd(tweet);
+                console.log(`Detected as ad: ${isAd ? '✅ YES' : '❌ NO'}`);
+
+                if (isAd) {
+                    console.log('🔍 Why it was detected as an ad:');
+
+                    // Check each method to see which one triggered
+                    const promotedIndicators = tweet.querySelectorAll('[data-testid="promotedIndicator"], [aria-label*="Promoted"]');
+                    if (promotedIndicators.length > 0) {
+                        console.log('  → Official promoted indicators found');
+                    }
+
+                    const socialContext = tweet.querySelector('[data-testid="socialContext"]');
+                    if (socialContext) {
+                        const contextText = socialContext.textContent.toLowerCase();
+                        if (contextText.includes('promoted by') || contextText.includes('sponsored by')) {
+                            console.log('  → Social context indicates promotion');
+                        }
+                    }
+
+                    const fullText = tweet.textContent.toLowerCase();
+                    if (fullText.includes('promoted tweet') || fullText.includes('sponsored tweet')) {
+                        console.log('  → Contains "promoted/sponsored tweet" text');
+                    }
+
+                    const spans = tweet.querySelectorAll('span');
+                    for (const span of spans) {
+                        const spanText = span.textContent.toLowerCase().trim();
+                        const parentElement = span.closest('button, [role="button"], a, [data-testid*="promote"]');
+                        if (!parentElement && (spanText === 'promoted' || spanText === 'sponsored' || spanText === 'advertisement')) {
+                            console.log(`  → Standalone promotional label found: "${spanText}"`);
+                        }
+                    }
+                }
+
+                // Show tweet preview
+                const tweetText = this.getTweetText(tweet).substring(0, 100);
+                console.log(`Tweet preview: "${tweetText}..."`);
+
+                // Check for promote buttons (which should NOT trigger ad detection)
+                const promoteButtons = tweet.querySelectorAll('button, [role="button"]');
+                const hasPromoteButton = Array.from(promoteButtons).some(btn =>
+                    btn.textContent.toLowerCase().includes('promote')
+                );
+                if (hasPromoteButton) {
+                    console.log('📌 Note: Tweet has "Promote" button (should NOT be filtered)');
+                }
+            }
         });
     }
 }
