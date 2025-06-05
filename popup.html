@@ -4,148 +4,104 @@
 <head>
     <title>X Feed Filter</title>
     <style>
+        /* Detect X theme and apply appropriate styling */
+        :root {
+            --x-bg-primary: rgb(255, 255, 255);
+            --x-bg-secondary: rgb(247, 249, 249);
+            --x-bg-hover: rgb(247, 249, 249);
+            --x-border-color: rgb(207, 217, 222);
+            --x-text-primary: rgb(15, 20, 25);
+            --x-text-secondary: rgb(83, 100, 113);
+            --x-text-tertiary: rgb(113, 118, 123);
+            --x-blue: rgb(29, 161, 242);
+            --x-blue-hover: rgb(26, 145, 218);
+        }
+
+        /* Dark theme variables */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --x-bg-primary: rgb(0, 0, 0);
+                --x-bg-secondary: rgb(22, 24, 28);
+                --x-bg-hover: rgb(28, 30, 34);
+                --x-border-color: rgb(47, 51, 54);
+                --x-text-primary: rgb(231, 233, 234);
+                --x-text-secondary: rgb(113, 118, 123);
+                --x-text-tertiary: rgb(113, 118, 123);
+            }
+        }
+
         body {
-            width: 380px;
-            min-height: 400px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            width: 360px;
+            min-height: 500px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 20px;
-            background: #f8f9fa;
+            padding: 0;
+            background: var(--x-bg-primary);
+            color: var(--x-text-primary);
+            line-height: 1.3125;
         }
 
         .header {
-            text-align: center;
-            margin-bottom: 20px;
+            padding: 20px 20px 16px 20px;
+            border-bottom: 1px solid var(--x-border-color);
+            background: var(--x-bg-primary);
         }
 
         .header h1 {
-            color: #1da1f2;
-            font-size: 18px;
+            color: var(--x-text-primary);
+            font-size: 20px;
             margin: 0;
+            font-weight: 700;
+            text-align: left;
         }
 
-        .add-filter {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .add-filter h3 {
-            margin: 0 0 10px 0;
-            color: #333;
+        .subtitle {
+            color: var(--x-text-secondary);
             font-size: 14px;
+            margin-top: 4px;
+            font-weight: 400;
         }
 
-        .input-group {
-            margin-bottom: 10px;
-        }
-
-        .input-group label {
-            display: block;
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-
-        .input-group input,
-        .input-group textarea,
-        .input-group select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            box-sizing: border-box;
-        }
-
-        .input-group textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
-
-        .btn {
-            background: #1da1f2;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            width: 100%;
-        }
-
-        .btn:hover {
-            background: #1a91da;
-        }
-
-        .btn-danger {
-            background: #e74c3c;
-        }
-
-        .btn-danger:hover {
-            background: #c0392b;
-        }
-
-        .btn-small {
-            padding: 5px 10px;
-            font-size: 12px;
-            width: auto;
-        }
-
-        .filters-list {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .filters-list h3 {
-            margin: 0;
-            padding: 15px;
-            border-bottom: 1px solid #eee;
-            color: #333;
-            font-size: 14px;
+        .filters-container {
+            background: var(--x-bg-primary);
         }
 
         .filter-item {
-            padding: 15px;
-            border-bottom: 1px solid #eee;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--x-border-color);
             display: flex;
-            align-items: flex-start;
-            gap: 10px;
+            align-items: center;
+            gap: 16px;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
         }
 
         .filter-item:last-child {
-            border-bottom: none;
+            border-bottom: 1px solid var(--x-border-color);
+        }
+
+        .filter-item:hover {
+            background: var(--x-bg-hover);
         }
 
         .filter-content {
             flex: 1;
+            min-width: 0;
         }
 
         .filter-name {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-            font-size: 13px;
+            font-weight: 700;
+            color: var(--x-text-primary);
+            margin-bottom: 2px;
+            font-size: 15px;
+            line-height: 20px;
         }
 
         .filter-description {
-            color: #666;
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-
-        .filter-keywords {
-            color: #888;
-            font-size: 11px;
-            font-style: italic;
-        }
-
-        .filter-actions {
-            display: flex;
-            gap: 5px;
+            color: var(--x-text-secondary);
+            font-size: 13px;
+            line-height: 16px;
+            font-weight: 400;
         }
 
         .toggle-switch {
@@ -153,6 +109,7 @@
             display: inline-block;
             width: 44px;
             height: 24px;
+            flex-shrink: 0;
         }
 
         .toggle-switch input {
@@ -168,8 +125,8 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
+            background-color: var(--x-text-secondary);
+            transition: 0.2s;
             border-radius: 24px;
         }
 
@@ -180,31 +137,116 @@
             width: 18px;
             left: 3px;
             bottom: 3px;
-            background-color: white;
-            transition: .4s;
+            background-color: var(--x-bg-primary);
+            transition: 0.2s;
             border-radius: 50%;
         }
 
         input:checked+.slider {
-            background-color: #1da1f2;
+            background-color: var(--x-blue);
         }
 
         input:checked+.slider:before {
             transform: translateX(20px);
         }
 
-        .status {
-            text-align: center;
-            padding: 10px;
-            font-size: 12px;
-            color: #666;
+        .custom-keywords {
+            margin: 0;
+            background: var(--x-bg-primary);
+            padding: 16px;
+            border-bottom: 1px solid var(--x-border-color);
         }
 
-        .empty-state {
-            text-align: center;
-            padding: 20px;
-            color: #666;
+        .custom-keywords h3 {
+            margin: 0 0 12px 0;
+            color: var(--x-text-primary);
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 20px;
+        }
+
+        .custom-keywords textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 1px solid var(--x-border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-family: inherit;
+            background: var(--x-bg-primary);
+            color: var(--x-text-primary);
+            line-height: 1.25;
+        }
+
+        .custom-keywords textarea:focus {
+            outline: none;
+            border-color: var(--x-blue);
+            box-shadow: 0 0 0 2px rgba(29, 161, 242, 0.2);
+        }
+
+        .custom-keywords textarea::placeholder {
+            color: var(--x-text-secondary);
+        }
+
+        .custom-keywords .help-text {
             font-size: 13px;
+            color: var(--x-text-secondary);
+            margin-top: 8px;
+            line-height: 16px;
+        }
+
+        .status {
+            padding: 16px;
+            font-size: 13px;
+            color: var(--x-text-secondary);
+            background: var(--x-bg-primary);
+            border-top: 1px solid var(--x-border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .enabled-count {
+            background: var(--x-blue);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 16px;
+        }
+
+        /* Scrollbar styling to match X */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--x-bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--x-border-color);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--x-text-secondary);
+        }
+
+        /* Focus styles matching X */
+        .toggle-switch:focus-within {
+            outline: 2px solid var(--x-blue);
+            outline-offset: 2px;
+            border-radius: 24px;
+        }
+
+        /* Animation for smooth theme transitions */
+        * {
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
     </style>
 </head>
@@ -212,48 +254,88 @@
 <body>
     <div class="header">
         <h1>X Feed Filter</h1>
+        <div class="subtitle">Clean up your timeline with smart filters</div>
     </div>
 
-    <div class="add-filter">
-        <h3>Add New Filter</h3>
-        <div class="input-group">
-            <label for="filterName">Filter Name</label>
-            <input type="text" id="filterName" placeholder="e.g., Hide Spam Posts">
-        </div>
-        <div class="input-group">
-            <label for="filterDescription">Description</label>
-            <textarea id="filterDescription" placeholder="Describe what this filter does..."></textarea>
-        </div>
-        <div class="input-group">
-            <label for="filterKeywords">Keywords/Phrases (comma-separated)</label>
-            <textarea id="filterKeywords" placeholder="spam, engagement bait, like if you agree, retweet if"></textarea>
-        </div>
-        <div class="input-group">
-            <label for="filterType">Filter Type</label>
-            <select id="filterType">
-                <option value="keywords">Hide by Keywords</option>
-                <option value="video">Hide Video Posts</option>
-                <option value="links">Hide Posts with Links</option>
-                <option value="retweets">Hide Retweets</option>
-                <option value="verified">Hide Verified Users</option>
-                <option value="engagement">Hide Engagement Bait</option>
-                <option value="ads">Hide Ads/Promoted Posts</option>
-            </select>
-        </div>
-        <button class="btn" id="addFilterBtn">Add Filter</button>
-    </div>
-
-    <div class="filters-list">
-        <h3>Active Filters</h3>
-        <div id="filtersList">
-            <div class="empty-state">
-                No filters added yet. Add your first filter above!
+    <div class="filters-container">
+        <div class="filter-item" data-filter-type="ads">
+            <div class="filter-content">
+                <div class="filter-name">Hide Ads & Promoted Posts</div>
+                <div class="filter-description">Block all sponsored content and promotional tweets</div>
             </div>
+            <label class="toggle-switch">
+                <input type="checkbox" data-filter="ads">
+                <span class="slider"></span>
+            </label>
         </div>
+
+        <div class="filter-item" data-filter-type="video">
+            <div class="filter-content">
+                <div class="filter-name">Hide Video Posts</div>
+                <div class="filter-description">Remove all tweets containing videos to save bandwidth</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" data-filter="video">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="filter-item" data-filter-type="engagement">
+            <div class="filter-content">
+                <div class="filter-name">Hide Engagement Bait</div>
+                <div class="filter-description">Block "like if you agree", "retweet if", and similar attention-seeking
+                    posts</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" data-filter="engagement">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="filter-item" data-filter-type="retweets">
+            <div class="filter-content">
+                <div class="filter-name">Hide Retweets</div>
+                <div class="filter-description">Show only original posts, hide all retweets</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" data-filter="retweets">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="filter-item" data-filter-type="links">
+            <div class="filter-content">
+                <div class="filter-name">Hide Posts with Links</div>
+                <div class="filter-description">Remove tweets containing external links</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" data-filter="links">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="filter-item" data-filter-type="verified">
+            <div class="filter-content">
+                <div class="filter-name">Hide Verified Users</div>
+                <div class="filter-description">Hide posts from verified accounts</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" data-filter="verified">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="custom-keywords">
+        <h3>Custom Keywords Filter</h3>
+        <textarea id="customKeywords"
+            placeholder="Add words or phrases to block (comma-separated)&#10;Example: spam, crypto, NFT, subscribe"></textarea>
+        <div class="help-text">Add custom words or phrases you want to filter out. Separate with commas.</div>
     </div>
 
     <div class="status" id="status">
         <span id="statusText">Ready to filter your X feed!</span>
+        <span id="enabledCount" class="enabled-count" style="display: none;">0 active</span>
     </div>
 
     <script src="popup.js"></script>

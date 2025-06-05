@@ -1,194 +1,196 @@
 // X Feed Filter - Popup Script
 
-class XFeedFilterManager {
+class XFilterManager {
     constructor() {
         this.filters = [];
+        this.predefinedFilters = {
+            ads: { name: "Hide Ads & Promoted Posts", type: "ads", keywords: [] },
+            video: { name: "Hide Video Posts", type: "video", keywords: [] },
+            engagement: { name: "Hide Engagement Bait", type: "engagement", keywords: [] },
+            retweets: { name: "Hide Retweets", type: "retweets", keywords: [] },
+            links: { name: "Hide Posts with Links", type: "links", keywords: [] },
+            verified: { name: "Hide Verified Users", type: "verified", keywords: [] }
+        };
         this.init();
     }
 
     async init() {
         await this.loadFilters();
+        this.detectAndApplyXTheme();
         this.setupEventListeners();
-        this.renderFilters();
+        this.updateUI();
         this.updateStatus();
     }
 
-    setupEventListeners() {
-        // Add filter button
-        document.getElementById('addFilterBtn').addEventListener('click', () => {
-            this.addFilter();
-        });
+    async detectAndApplyXTheme() {
+        try {
+            // Query the active tab to detect X's theme
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-        // Filter type change
-        document.getElementById('filterType').addEventListener('change', (e) => {
-            this.handleFilterTypeChange(e.target.value);
-        });
+            if (tab && (tab.url.includes('twitter.com') || tab.url.includes('x.com'))) {
+                // Execute script to detect theme using Manifest V3 API
+                const results = await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    func: () => {
+                        // Multiple ways to detect X's dark mode
+                        const isDarkMode =
+                            document.body.style.backgroundColor.includes('rgb(0, 0, 0)') ||
+                            document.body.style.backgroundColor.includes('rgb(21, 32, 43)') ||
+                            document.documentElement.style.colorScheme?.includes('dark') ||
+                            document.querySelector('[data-theme="dark"]') !== null ||
+                            window.getComputedStyle(document.body).backgroundColor.includes('rgb(0, 0, 0)') ||
+                            window.getComputedStyle(document.body).backgroundColor.includes('rgb(21, 32, 43)') ||
+                            window.getComputedStyle(document.body).backgroundColor.includes('rgb(22, 24, 28)');
 
-        // Enter key in inputs
-        ['filterName', 'filterDescription', 'filterKeywords'].forEach(id => {
-            document.getElementById(id).addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.addFilter();
+                        return isDarkMode;
+                    }
+                });
+
+                if (results && results[0] && results[0].result) {
+                    this.applyTheme(true); // Dark mode detected
+                } else {
+                    this.applyTheme(false); // Light mode
                 }
+            } else {
+                // Fallback to system preference
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                this.applyTheme(prefersDark);
+            }
+        } catch (error) {
+            console.log('Could not detect X theme, using system preference');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this.applyTheme(prefersDark);
+        }
+    }
+
+    applyTheme(isDarkMode) {
+        const root = document.documentElement;
+
+        if (isDarkMode) {
+            // X Dark Mode colors
+            root.style.setProperty('--x-bg-primary', 'rgb(0, 0, 0)');
+            root.style.setProperty('--x-bg-secondary', 'rgb(22, 24, 28)');
+            root.style.setProperty('--x-bg-hover', 'rgb(28, 30, 34)');
+            root.style.setProperty('--x-border-color', 'rgb(47, 51, 54)');
+            root.style.setProperty('--x-text-primary', 'rgb(231, 233, 234)');
+            root.style.setProperty('--x-text-secondary', 'rgb(113, 118, 123)');
+            root.style.setProperty('--x-text-tertiary', 'rgb(113, 118, 123)');
+        } else {
+            // X Light Mode colors
+            root.style.setProperty('--x-bg-primary', 'rgb(255, 255, 255)');
+            root.style.setProperty('--x-bg-secondary', 'rgb(247, 249, 249)');
+            root.style.setProperty('--x-bg-hover', 'rgb(247, 249, 249)');
+            root.style.setProperty('--x-border-color', 'rgb(207, 217, 222)');
+            root.style.setProperty('--x-text-primary', 'rgb(15, 20, 25)');
+            root.style.setProperty('--x-text-secondary', 'rgb(83, 100, 113)');
+            root.style.setProperty('--x-text-tertiary', 'rgb(113, 118, 123)');
+        }
+
+        // X brand colors (consistent across themes)
+        root.style.setProperty('--x-blue', 'rgb(29, 161, 242)');
+        root.style.setProperty('--x-blue-hover', 'rgb(26, 145, 218)');
+    }
+
+    setupEventListeners() {
+        // Toggle switches for predefined filters
+        document.querySelectorAll('input[data-filter]').forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                this.togglePredefinedFilter(e.target.dataset.filter, e.target.checked);
             });
         });
+
+        // Custom keywords textarea
+        const customKeywords = document.getElementById('customKeywords');
+        let keywordTimeout;
+
+        customKeywords.addEventListener('input', () => {
+            clearTimeout(keywordTimeout);
+            keywordTimeout = setTimeout(() => {
+                this.updateCustomKeywords(customKeywords.value);
+            }, 500); // Debounce 500ms
+        });
     }
 
-    handleFilterTypeChange(type) {
-        const keywordsGroup = document.getElementById('filterKeywords').parentElement;
-        const keywordsInput = document.getElementById('filterKeywords');
+    async togglePredefinedFilter(filterKey, enabled) {
+        const filterTemplate = this.predefinedFilters[filterKey];
+        if (!filterTemplate) return;
 
-        switch (type) {
-            case 'keywords':
-                keywordsGroup.style.display = 'block';
-                keywordsInput.placeholder = 'spam, engagement bait, like if you agree, retweet if';
-                break;
-            case 'video':
-                keywordsGroup.style.display = 'none';
-                break;
-            case 'links':
-                keywordsGroup.style.display = 'none';
-                break;
-            case 'retweets':
-                keywordsGroup.style.display = 'none';
-                break;
-            case 'verified':
-                keywordsGroup.style.display = 'none';
-                break;
-            case 'engagement':
-                keywordsGroup.style.display = 'block';
-                keywordsInput.placeholder = 'like if, retweet if, agree if, comment if';
-                break;
-            case 'ads':
-                keywordsGroup.style.display = 'none';
-                break;
-        }
-    }
+        if (enabled) {
+            // Add filter
+            const filter = {
+                id: `predefined_${filterKey}`,
+                name: filterTemplate.name,
+                description: `Auto-generated ${filterTemplate.name.toLowerCase()}`,
+                keywords: filterTemplate.keywords,
+                type: filterTemplate.type,
+                enabled: true,
+                createdAt: new Date().toISOString()
+            };
 
-    async addFilter() {
-        const name = document.getElementById('filterName').value.trim();
-        const description = document.getElementById('filterDescription').value.trim();
-        const keywords = document.getElementById('filterKeywords').value.trim();
-        const type = document.getElementById('filterType').value;
-
-        if (!name) {
-            this.showStatus('Please enter a filter name', 'error');
-            return;
+            // Remove existing filter with same type if any
+            this.filters = this.filters.filter(f => f.type !== filterTemplate.type || f.id.startsWith('custom_'));
+            this.filters.push(filter);
+        } else {
+            // Remove filter
+            this.filters = this.filters.filter(f => f.id !== `predefined_${filterKey}`);
         }
 
-        // Create filter object
-        const filter = {
-            id: Date.now().toString(),
-            name,
-            description,
-            keywords: keywords ? keywords.split(',').map(k => k.trim()).filter(k => k) : [],
-            type,
-            enabled: true,
-            createdAt: new Date().toISOString()
-        };
-
-        // Add to filters array
-        this.filters.push(filter);
-
-        // Save to storage
         await this.saveFilters();
-
-        // Clear form
-        this.clearForm();
-
-        // Re-render filters
-        this.renderFilters();
-
-        // Update content script
         this.updateContentScript();
-
-        this.showStatus('Filter added successfully!', 'success');
+        this.updateStatus();
     }
 
-    clearForm() {
-        document.getElementById('filterName').value = '';
-        document.getElementById('filterDescription').value = '';
-        document.getElementById('filterKeywords').value = '';
-        document.getElementById('filterType').value = 'keywords';
-        this.handleFilterTypeChange('keywords');
-    }
+    async updateCustomKeywords(keywordsText) {
+        const keywords = keywordsText
+            .split(',')
+            .map(k => k.trim())
+            .filter(k => k.length > 0);
 
-    async removeFilter(filterId) {
-        this.filters = this.filters.filter(f => f.id !== filterId);
+        // Remove existing custom keywords filter
+        this.filters = this.filters.filter(f => f.id !== 'custom_keywords');
+
+        if (keywords.length > 0) {
+            // Add new custom keywords filter
+            const filter = {
+                id: 'custom_keywords',
+                name: 'Custom Keywords',
+                description: `Blocking: ${keywords.slice(0, 3).join(', ')}${keywords.length > 3 ? '...' : ''}`,
+                keywords: keywords,
+                type: 'keywords',
+                enabled: true,
+                createdAt: new Date().toISOString()
+            };
+
+            this.filters.push(filter);
+        }
+
         await this.saveFilters();
-        this.renderFilters();
         this.updateContentScript();
-        this.showStatus('Filter removed', 'success');
+        this.updateStatus();
     }
 
-    async toggleFilter(filterId) {
-        const filter = this.filters.find(f => f.id === filterId);
-        if (filter) {
-            filter.enabled = !filter.enabled;
-            await this.saveFilters();
-            this.renderFilters();
-            this.updateContentScript();
-            this.showStatus(`Filter ${filter.enabled ? 'enabled' : 'disabled'}`, 'success');
+    updateUI() {
+        // Update toggle switches based on current filters
+        Object.keys(this.predefinedFilters).forEach(filterKey => {
+            const toggle = document.querySelector(`input[data-filter="${filterKey}"]`);
+            if (toggle) {
+                const hasFilter = this.filters.some(f => f.id === `predefined_${filterKey}` && f.enabled);
+                toggle.checked = hasFilter;
+            }
+        });
+
+        // Update custom keywords textarea
+        const customKeywordsFilter = this.filters.find(f => f.id === 'custom_keywords');
+        const customKeywords = document.getElementById('customKeywords');
+        if (customKeywordsFilter && customKeywords) {
+            customKeywords.value = customKeywordsFilter.keywords.join(', ');
         }
-    }
-
-    renderFilters() {
-        const container = document.getElementById('filtersList');
-
-        if (this.filters.length === 0) {
-            container.innerHTML = '<div class="empty-state">No filters added yet. Add your first filter above!</div>';
-            return;
-        }
-
-        container.innerHTML = this.filters.map(filter => `
-            <div class="filter-item">
-                <div class="filter-content">
-                    <div class="filter-name">${this.escapeHtml(filter.name)}</div>
-                    <div class="filter-description">${this.escapeHtml(filter.description)}</div>
-                    <div class="filter-keywords">
-                        Type: ${this.getFilterTypeLabel(filter.type)}
-                        ${filter.keywords.length > 0 ? `| Keywords: ${filter.keywords.join(', ')}` : ''}
-                    </div>
-                </div>
-                <div class="filter-actions">
-                    <label class="toggle-switch">
-                        <input type="checkbox" ${filter.enabled ? 'checked' : ''} 
-                               onchange="filterManager.toggleFilter('${filter.id}')">
-                        <span class="slider"></span>
-                    </label>
-                    <button class="btn btn-danger btn-small" 
-                            onclick="filterManager.removeFilter('${filter.id}')">
-                        Remove
-                    </button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    getFilterTypeLabel(type) {
-        const labels = {
-            'keywords': 'Keywords',
-            'video': 'Video Posts',
-            'links': 'Posts with Links',
-            'retweets': 'Retweets',
-            'verified': 'Verified Users',
-            'engagement': 'Engagement Bait',
-            'ads': 'Ads/Promoted Posts'
-        };
-        return labels[type] || type;
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     async loadFilters() {
         try {
-            const result = await chrome.storage.sync.get(['xFilters']);
-            this.filters = result.xFilters || [];
+            const result = await chrome.storage.sync.get(['twitterFilters']);
+            this.filters = result.twitterFilters || [];
         } catch (error) {
             console.error('Error loading filters:', error);
             this.filters = [];
@@ -197,7 +199,7 @@ class XFeedFilterManager {
 
     async saveFilters() {
         try {
-            await chrome.storage.sync.set({ xFilters: this.filters });
+            await chrome.storage.sync.set({ twitterFilters: this.filters });
         } catch (error) {
             console.error('Error saving filters:', error);
             this.showStatus('Error saving filters', 'error');
@@ -220,14 +222,17 @@ class XFeedFilterManager {
 
     updateStatus() {
         const activeFilters = this.filters.filter(f => f.enabled).length;
-        const totalFilters = this.filters.length;
+        const statusText = document.getElementById('statusText');
+        const enabledCount = document.getElementById('enabledCount');
 
-        let statusText = `${activeFilters} of ${totalFilters} filters active`;
-        if (totalFilters === 0) {
-            statusText = 'Ready to filter your X feed!';
+        if (activeFilters === 0) {
+            statusText.textContent = 'Ready to filter your X feed!';
+            enabledCount.style.display = 'none';
+        } else {
+            statusText.textContent = 'Filters active and working';
+            enabledCount.textContent = `${activeFilters} active`;
+            enabledCount.style.display = 'inline';
         }
-
-        document.getElementById('statusText').textContent = statusText;
     }
 
     showStatus(message, type = 'info') {
@@ -246,7 +251,7 @@ class XFeedFilterManager {
 }
 
 // Initialize the filter manager
-const filterManager = new XFeedFilterManager();
+const filterManager = new XFilterManager();
 
 // Handle messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
