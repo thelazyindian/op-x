@@ -201,6 +201,8 @@ class TwitterFeedFilter {
                 return this.isFromVerifiedUser(tweetElement);
             case 'engagement':
                 return this.isEngagementBait(tweetElement);
+            case 'ads':
+                return this.isAd(tweetElement);
             default:
                 return false;
         }
@@ -283,6 +285,79 @@ class TwitterFeedFilter {
         return engagementPatterns.some(pattern =>
             tweetText.includes(pattern)
         );
+    }
+
+    isAd(tweetElement) {
+        // Method 1: Look for "Promoted" text or indicators
+        const promotedIndicators = [
+            '[data-testid="promotedIndicator"]',
+            '[aria-label*="Promoted"]',
+            '[data-testid="socialContext"]'
+        ];
+
+        for (const selector of promotedIndicators) {
+            const element = tweetElement.querySelector(selector);
+            if (element) {
+                const text = element.textContent.toLowerCase();
+                if (text.includes('promoted') || text.includes('ad') || text.includes('sponsored')) {
+                    return true;
+                }
+            }
+        }
+
+        // Method 2: Check for "Promoted" text anywhere in the tweet
+        const allText = tweetElement.textContent.toLowerCase();
+        if (allText.includes('promoted') || allText.includes('sponsored tweet')) {
+            return true;
+        }
+
+        // Method 3: Look for specific ad-related attributes
+        if (tweetElement.getAttribute('data-promoted') === 'true') {
+            return true;
+        }
+
+        // Method 4: Check for promotional context indicators
+        const socialContext = tweetElement.querySelector('[data-testid="socialContext"]');
+        if (socialContext) {
+            const contextText = socialContext.textContent.toLowerCase();
+            if (contextText.includes('promoted') ||
+                contextText.includes('sponsored') ||
+                contextText.includes('advertisement')) {
+                return true;
+            }
+        }
+
+        // Method 5: Look for "Ad" labels or promotional indicators in span elements
+        const spans = tweetElement.querySelectorAll('span');
+        for (const span of spans) {
+            const spanText = span.textContent.toLowerCase().trim();
+            if (spanText === 'promoted' ||
+                spanText === 'ad' ||
+                spanText === 'sponsored' ||
+                spanText === 'advertisement') {
+                return true;
+            }
+        }
+
+        // Method 6: Check for promotional URLs or tracking parameters
+        const links = tweetElement.querySelectorAll('a[href]');
+        for (const link of links) {
+            const href = link.getAttribute('href');
+            if (href && (href.includes('utm_') || href.includes('promo') || href.includes('campaign'))) {
+                return true;
+            }
+        }
+
+        // Method 7: Look for Twitter's promoted tweet structure
+        const tweetContainer = tweetElement.closest('[data-testid="cellInnerDiv"]');
+        if (tweetContainer) {
+            const containerText = tweetContainer.textContent.toLowerCase();
+            if (containerText.includes('promoted')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     getTweetText(tweetElement) {
@@ -586,6 +661,8 @@ class TwitterFeedFilter {
                     engagementText.includes(pattern)
                 );
                 return matched ? `Engagement bait: "${matched}"` : 'Engagement bait detected';
+            case 'ads':
+                return 'Contains promoted content';
             default:
                 return '';
         }

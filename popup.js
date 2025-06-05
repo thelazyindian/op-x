@@ -60,6 +60,9 @@ class TwitterFilterManager {
                 keywordsGroup.style.display = 'block';
                 keywordsInput.placeholder = 'like if, retweet if, agree if, comment if';
                 break;
+            case 'ads':
+                keywordsGroup.style.display = 'none';
+                break;
         }
     }
 
@@ -170,7 +173,8 @@ class TwitterFilterManager {
             'links': 'Posts with Links',
             'retweets': 'Retweets',
             'verified': 'Verified Users',
-            'engagement': 'Engagement Bait'
+            'engagement': 'Engagement Bait',
+            'ads': 'Ads/Promoted Posts'
         };
         return labels[type] || type;
     }
