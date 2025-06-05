@@ -3,6 +3,10 @@
 class TwitterFeedFilter {
     constructor() {
         this.filters = [];
+        this.exceptions = {
+            followingOnly: false,
+            usernames: []
+        };
         this.hiddenCount = 0;
         this.isRunning = false;
         this.observer = null;
@@ -13,6 +17,7 @@ class TwitterFeedFilter {
     async init() {
         console.log('🐦 Twitter Feed Filter initialized');
         await this.loadFilters();
+        await this.loadExceptions();
         this.detectAndApplyTheme();
         this.startFiltering();
         this.setupMessageListener();
@@ -30,11 +35,30 @@ class TwitterFeedFilter {
         }
     }
 
+    async loadExceptions() {
+        try {
+            const result = await chrome.storage.sync.get(['twitterExceptions']);
+            this.exceptions = result.twitterExceptions || {
+                followingOnly: false,
+                usernames: []
+            };
+            console.log(`Loaded exceptions: following=${this.exceptions.followingOnly}, usernames=${this.exceptions.usernames.length}`);
+        } catch (error) {
+            console.error('Error loading exceptions:', error);
+            this.exceptions = {
+                followingOnly: false,
+                usernames: []
+            };
+        }
+    }
+
     setupMessageListener() {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'updateFilters') {
                 this.filters = request.filters;
+                this.exceptions = request.exceptions || { followingOnly: false, usernames: [] };
                 console.log(`Updated to ${this.filters.length} active filters`);
+                console.log(`Updated exceptions: following=${this.exceptions.followingOnly}, usernames=${this.exceptions.usernames.length}`);
                 this.cleanupDuplicateIndicators();
                 this.filterExistingPosts();
                 sendResponse({ success: true });
@@ -180,10 +204,114 @@ class TwitterFeedFilter {
             return false;
         }
 
+        // Check for exceptions first
+        if (this.isExemptFromFiltering(tweetElement)) {
+            return false;
+        }
+
         for (const filter of this.filters) {
             if (this.matchesFilter(tweetElement, filter)) {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    isExemptFromFiltering(tweetElement) {
+        // Check username exceptions
+        if (this.exceptions.usernames.length > 0) {
+            const username = this.getTweetUsername(tweetElement);
+            if (username && this.exceptions.usernames.some(exemptUser =>
+                exemptUser.toLowerCase() === username.toLowerCase()
+            )) {
+                console.log(`Tweet from ${username} is exempt (username exception)`);
+                return true;
+            }
+        }
+
+        // Check following exception
+        if (this.exceptions.followingOnly) {
+            if (this.isFromFollowedUser(tweetElement)) {
+                console.log(`Tweet is exempt (following exception)`);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    getTweetUsername(tweetElement) {
+        // Look for username in various possible locations
+        const usernameSelectors = [
+            'a[href*="/"]',
+            '[data-testid="User-Name"] a',
+            '[data-testid="User-Names"] a'
+        ];
+
+        for (const selector of usernameSelectors) {
+            const userLink = tweetElement.querySelector(selector);
+            if (userLink) {
+                const href = userLink.getAttribute('href');
+                if (href && href.match(/^\/[^\/]+$/)) {
+                    // Extract username from href like "/username"
+                    const username = href.substring(1);
+                    if (username && !username.includes('/') && username !== 'i') {
+                        return `@${username}`;
+                    }
+                }
+            }
+        }
+
+        // Try to find username in spans
+        const spans = tweetElement.querySelectorAll('span');
+        for (const span of spans) {
+            const text = span.textContent.trim();
+            if (text.startsWith('@') && text.length > 1 && !text.includes(' ')) {
+                return text;
+            }
+        }
+
+        return null;
+    }
+
+    isFromFollowedUser(tweetElement) {
+        // Check if the tweet is from a followed user
+        // This is challenging to detect reliably, so we'll use several heuristics
+
+        // Method 1: Look for "Following" badge or similar indicators
+        const followingIndicators = [
+            '[data-testid="userFollowIndicator"]',
+            '[aria-label*="Following"]',
+            '[title*="Following"]'
+        ];
+
+        for (const selector of followingIndicators) {
+            if (tweetElement.querySelector(selector)) {
+                return true;
+            }
+        }
+
+        // Method 2: Check for "Following" text near the username
+        const userNameArea = tweetElement.querySelector('[data-testid="User-Name"]') ||
+            tweetElement.querySelector('[data-testid="User-Names"]');
+
+        if (userNameArea) {
+            const parentElement = userNameArea.closest('[data-testid="tweet"]') || userNameArea.parentElement;
+            const allText = parentElement ? parentElement.textContent.toLowerCase() : '';
+
+            // Look for "following" indicator in the tweet header area
+            if (allText.includes('following')) {
+                return true;
+            }
+        }
+
+        // Method 3: Check if there's a "Follow" button (if no follow button, likely already following)
+        // This is a weak heuristic but can be useful
+        const followButton = tweetElement.querySelector('[data-testid*="follow"]');
+        if (!followButton) {
+            // No follow button found - might indicate already following
+            // This is not reliable enough on its own, so we'll be conservative
         }
 
         return false;

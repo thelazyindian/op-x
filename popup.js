@@ -3,6 +3,10 @@
 class XFilterManager {
     constructor() {
         this.filters = [];
+        this.exceptions = {
+            followingOnly: false,
+            usernames: []
+        };
         this.predefinedFilters = {
             ads: { name: "Hide Ads & Promoted Posts", type: "ads", keywords: [] },
             video: { name: "Hide Video Posts", type: "video", keywords: [] },
@@ -16,6 +20,7 @@ class XFilterManager {
 
     async init() {
         await this.loadFilters();
+        await this.loadExceptions();
         this.detectAndApplyXTheme();
         this.setupEventListeners();
         this.updateUI();
@@ -109,6 +114,23 @@ class XFilterManager {
                 this.updateCustomKeywords(customKeywords.value);
             }, 500); // Debounce 500ms
         });
+
+        // Following exception toggle
+        const followingException = document.getElementById('followingException');
+        followingException.addEventListener('change', (e) => {
+            this.updateFollowingException(e.target.checked);
+        });
+
+        // Username exceptions textarea
+        const usernameExceptions = document.getElementById('usernameExceptions');
+        let usernameTimeout;
+
+        usernameExceptions.addEventListener('input', () => {
+            clearTimeout(usernameTimeout);
+            usernameTimeout = setTimeout(() => {
+                this.updateUsernameExceptions(usernameExceptions.value);
+            }, 500); // Debounce 500ms
+        });
     }
 
     async togglePredefinedFilter(filterKey, enabled) {
@@ -185,6 +207,17 @@ class XFilterManager {
         if (customKeywordsFilter && customKeywords) {
             customKeywords.value = customKeywordsFilter.keywords.join(', ');
         }
+
+        // Update exceptions UI
+        const followingException = document.getElementById('followingException');
+        if (followingException) {
+            followingException.checked = this.exceptions.followingOnly;
+        }
+
+        const usernameExceptions = document.getElementById('usernameExceptions');
+        if (usernameExceptions) {
+            usernameExceptions.value = this.exceptions.usernames.join('\n');
+        }
     }
 
     async loadFilters() {
@@ -204,6 +237,51 @@ class XFilterManager {
             console.error('Error saving filters:', error);
             this.showStatus('Error saving filters', 'error');
         }
+    }
+
+    async loadExceptions() {
+        try {
+            const result = await chrome.storage.sync.get(['twitterExceptions']);
+            this.exceptions = result.twitterExceptions || {
+                followingOnly: false,
+                usernames: []
+            };
+        } catch (error) {
+            console.error('Error loading exceptions:', error);
+            this.exceptions = {
+                followingOnly: false,
+                usernames: []
+            };
+        }
+    }
+
+    async saveExceptions() {
+        try {
+            await chrome.storage.sync.set({ twitterExceptions: this.exceptions });
+        } catch (error) {
+            console.error('Error saving exceptions:', error);
+            this.showStatus('Error saving exceptions', 'error');
+        }
+    }
+
+    async updateFollowingException(enabled) {
+        this.exceptions.followingOnly = enabled;
+        await this.saveExceptions();
+        this.updateContentScript();
+        this.updateStatus();
+    }
+
+    async updateUsernameExceptions(usernamesText) {
+        const usernames = usernamesText
+            .split('\n')
+            .map(u => u.trim())
+            .filter(u => u.length > 0)
+            .map(u => u.startsWith('@') ? u : `@${u}`); // Ensure @ prefix
+
+        this.exceptions.usernames = usernames;
+        await this.saveExceptions();
+        this.updateContentScript();
+        this.updateStatus();
     }
 
     async updateContentScript() {
@@ -229,7 +307,8 @@ class XFilterManager {
             // Try to send message with timeout and better error handling
             const message = {
                 action: 'updateFilters',
-                filters: this.filters.filter(f => f.enabled)
+                filters: this.filters.filter(f => f.enabled),
+                exceptions: this.exceptions
             };
 
             // Add a small delay to ensure content script is ready
@@ -253,6 +332,7 @@ class XFilterManager {
 
     updateStatus() {
         const activeFilters = this.filters.filter(f => f.enabled).length;
+        const hasExceptions = this.exceptions.followingOnly || this.exceptions.usernames.length > 0;
         const statusText = document.getElementById('statusText');
         const enabledCount = document.getElementById('enabledCount');
 
@@ -260,7 +340,11 @@ class XFilterManager {
             statusText.textContent = 'Ready to filter your X feed!';
             enabledCount.style.display = 'none';
         } else {
-            statusText.textContent = 'Filters active and working';
+            let statusMessage = 'Filters active and working';
+            if (hasExceptions) {
+                statusMessage += ' (with exceptions)';
+            }
+            statusText.textContent = statusMessage;
             enabledCount.textContent = `${activeFilters} active`;
             enabledCount.style.display = 'inline';
         }
@@ -287,6 +371,9 @@ const filterManager = new XFilterManager();
 // Handle messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getFilters') {
-        sendResponse({ filters: filterManager.filters.filter(f => f.enabled) });
+        sendResponse({
+            filters: filterManager.filters.filter(f => f.enabled),
+            exceptions: filterManager.exceptions
+        });
     }
 }); 

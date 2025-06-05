@@ -197,6 +197,84 @@
             line-height: 16px;
         }
 
+        .exceptions {
+            margin: 0;
+            background: var(--x-bg-primary);
+            padding: 16px;
+            border-bottom: 1px solid var(--x-border-color);
+        }
+
+        .exceptions h3 {
+            margin: 0 0 12px 0;
+            color: var(--x-text-primary);
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 20px;
+        }
+
+        .exception-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--x-border-color);
+        }
+
+        .exception-item:last-child {
+            border-bottom: none;
+        }
+
+        .exception-content {
+            flex: 1;
+        }
+
+        .exception-name {
+            color: var(--x-text-primary);
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 18px;
+            margin-bottom: 2px;
+        }
+
+        .exception-description {
+            color: var(--x-text-secondary);
+            font-size: 12px;
+            line-height: 16px;
+        }
+
+        .exceptions textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 12px;
+            border: 1px solid var(--x-border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-family: inherit;
+            background: var(--x-bg-primary);
+            color: var(--x-text-primary);
+            line-height: 1.25;
+            margin-top: 12px;
+        }
+
+        .exceptions textarea:focus {
+            outline: none;
+            border-color: var(--x-blue);
+            box-shadow: 0 0 0 2px rgba(29, 161, 242, 0.2);
+        }
+
+        .exceptions textarea::placeholder {
+            color: var(--x-text-secondary);
+        }
+
+        .exceptions .help-text {
+            font-size: 13px;
+            color: var(--x-text-secondary);
+            margin-top: 8px;
+            line-height: 16px;
+        }
+
         .status {
             padding: 16px;
             font-size: 13px;
@@ -331,6 +409,24 @@
         <textarea id="customKeywords"
             placeholder="Add words or phrases to block (comma-separated)&#10;Example: spam, crypto, NFT, subscribe"></textarea>
         <div class="help-text">Add custom words or phrases you want to filter out. Separate with commas.</div>
+    </div>
+
+    <div class="exceptions">
+        <h3>Global Exceptions</h3>
+        <div class="exception-item">
+            <div class="exception-content">
+                <div class="exception-name">Never Filter Following</div>
+                <div class="exception-description">Don't apply any filters to people you follow</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="followingException">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <textarea id="usernameExceptions"
+            placeholder="Enter usernames to never filter (one per line)&#10;Example:&#10;@username1&#10;@username2"></textarea>
+        <div class="help-text">These users will be exempt from all filters. Enter usernames with @ symbol, one per line.
+        </div>
     </div>
 
     <div class="status" id="status">
