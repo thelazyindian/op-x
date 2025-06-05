@@ -1,6 +1,6 @@
-// Twitter Feed Filter - Content Script
+// X Feed Filter - Content Script
 
-class TwitterFeedFilter {
+class XFeedFilter {
     constructor() {
         this.filters = [];
         this.exceptions = {
@@ -16,7 +16,7 @@ class TwitterFeedFilter {
     }
 
     async init() {
-        console.log('🐦 Twitter Feed Filter initialized');
+        console.log('🐦 X Feed Filter initialized');
         await this.loadFilters();
         await this.loadExceptions();
         this.detectAndApplyTheme();
@@ -279,7 +279,7 @@ class TwitterFeedFilter {
                     const usernameMatch = href.match(/^\/([a-zA-Z0-9_]+)(?:\?|$)/);
                     if (usernameMatch) {
                         const username = usernameMatch[1];
-                        // Exclude Twitter system paths
+                        // Exclude X system paths
                         const excludedPaths = ['i', 'home', 'explore', 'notifications', 'messages', 'bookmarks', 'lists', 'profile', 'more', 'search', 'settings', 'help', 'display'];
                         if (!excludedPaths.includes(username.toLowerCase())) {
                             console.log(`Found username via profile link: @${username}`);
@@ -326,7 +326,7 @@ class TwitterFeedFilter {
                 if (usernameMatch) {
                     const username = usernameMatch[1];
                     const excludedPaths = ['i', 'home', 'explore', 'notifications', 'messages', 'bookmarks', 'lists', 'profile', 'more', 'search', 'settings', 'help', 'display'];
-                    if (!excludedPaths.includes(username.toLowerCase()) && username.length <= 15) { // Twitter usernames max 15 chars
+                    if (!excludedPaths.includes(username.toLowerCase()) && username.length <= 15) { // X usernames max 15 chars
                         console.log(`Found username via fallback link: @${username}`);
                         return `@${username}`;
                     }
@@ -431,7 +431,7 @@ class TwitterFeedFilter {
 
     hasLinks(tweetElement) {
         const links = tweetElement.querySelectorAll('a[href*="http"]');
-        // Filter out internal Twitter links
+        // Filter out internal X links
         for (const link of links) {
             const href = link.getAttribute('href');
             if (href && !href.includes('twitter.com') && !href.includes('x.com') && !href.startsWith('/')) {
@@ -493,7 +493,7 @@ class TwitterFeedFilter {
     isAd(tweetElement) {
         // Method 1: Look for official "Promoted" indicators (most reliable)
         const promotedIndicators = [
-            '[data-testid="promotedIndicator"]',     // Twitter's official promoted indicator
+            '[data-testid="promotedIndicator"]',     // X's official promoted indicator
             '[aria-label*="Promoted"]'              // Accessibility labels for promoted content
         ];
 
@@ -717,7 +717,7 @@ class TwitterFeedFilter {
         const styles = document.createElement('style');
         styles.id = 'twitter-filter-styles';
         styles.textContent = `
-            /* Detect Twitter theme for dynamic styling */
+            /* Detect X theme for dynamic styling */
             .twitter-filter-indicator {
                 background: transparent;
                 border: none;
@@ -904,12 +904,12 @@ class TwitterFeedFilter {
                 color: var(--twitter-color-green, rgb(0, 186, 124));
             }
             
-            /* Twitter-like spacing and typography */
+            /* X-like spacing and typography */
             .twitter-filter-indicator * {
                 box-sizing: border-box;
             }
             
-            /* Match Twitter's button styling more closely */
+            /* Match X's button styling more closely */
             .show-temp-btn, .hide-permanent-btn {
                 border-radius: 9999px;
                 font-family: inherit;
@@ -982,8 +982,8 @@ class TwitterFeedFilter {
     }
 
     detectAndApplyTheme() {
-        // Detect Twitter's current theme
-        const isDarkMode = this.isTwitterDarkMode();
+        // Detect X's current theme
+        const isDarkMode = this.isXDarkMode();
 
         // Add theme class to filter indicators
         document.documentElement.setAttribute('data-twitter-theme', isDarkMode ? 'dark' : 'light');
@@ -992,7 +992,7 @@ class TwitterFeedFilter {
         this.updateThemeProperties(isDarkMode);
     }
 
-    isTwitterDarkMode() {
+    isXDarkMode() {
         // Method 1: Check for dark mode indicators in the body style
         const bodyBg = window.getComputedStyle(document.body).backgroundColor;
         if (bodyBg.includes('rgb(0, 0, 0)') || bodyBg.includes('rgb(21, 32, 43)') || bodyBg.includes('rgb(22, 24, 28)')) {
@@ -1012,7 +1012,7 @@ class TwitterFeedFilter {
             return true;
         }
 
-        // Method 4: Check Twitter's specific elements
+        // Method 4: Check X's specific elements
         const tweetElements = document.querySelectorAll('[data-testid="tweet"]');
         if (tweetElements.length > 0) {
             const firstTweet = tweetElements[0];
@@ -1046,7 +1046,7 @@ class TwitterFeedFilter {
             root.style.setProperty('--twitter-text-tertiary', 'rgb(113, 118, 123)');
         }
 
-        // Twitter brand colors (consistent across themes)
+        // X brand colors (consistent across themes)
         root.style.setProperty('--twitter-color-blue', 'rgb(29, 161, 242)');
         root.style.setProperty('--twitter-color-blue-hover', 'rgb(26, 145, 218)');
         root.style.setProperty('--twitter-color-green', 'rgb(0, 186, 124)');
@@ -1056,7 +1056,7 @@ class TwitterFeedFilter {
     setupThemeObserver() {
         // Watch for theme changes
         const themeObserver = new MutationObserver(() => {
-            const newTheme = this.isTwitterDarkMode();
+            const newTheme = this.isXDarkMode();
             const currentTheme = document.documentElement.getAttribute('data-twitter-theme');
 
             if ((newTheme && currentTheme !== 'dark') || (!newTheme && currentTheme !== 'light')) {
@@ -1160,11 +1160,11 @@ class TwitterFeedFilter {
 // Initialize the filter when the page loads
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        new TwitterFeedFilter();
+        new XFeedFilter();
     });
 } else {
-    new TwitterFeedFilter();
+    new XFeedFilter();
 }
 
 // Make it available globally for debugging
-window.twitterFilter = new TwitterFeedFilter(); 
+window.twitterFilter = new XFeedFilter(); 
